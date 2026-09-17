@@ -6,3 +6,8 @@ __pycache__/
 venv/
 .env
 runs/
+engine/build/
+engine/dist/
+.output/
+.wrangler/
+src-tauri/gen/
