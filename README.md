@@ -44,11 +44,47 @@ A meta de distribuição atual é **Windows + instalador NSIS por máquina**, in
 
 ### Tauri
 
-O bridge Rust já consegue iniciar `python -m engine.daemon`, enviar comandos JSON e encaminhar eventos do engine para o frontend.
+O bridge Rust inicia o engine e envia comandos JSON, encaminhando stdout/stderr para eventos do frontend.
+
+Em desenvolvimento, o bridge continua podendo usar `python -m engine.daemon` a partir da raiz do projeto.
+
+No build Windows, o engine Python é transformado em um executável **self-contained com PyInstaller**. O executável é incorporado como recurso do Tauri, portanto a instalação final **não depende de Python instalado na máquina do usuário**.
+
+O engine instalado usa como diretório de trabalho os dados do usuário em:
+
+```text
+%USERPROFILE%\Documents\Chupacabra System\
+```
+
+Isso separa o runtime instalado dos dados mutáveis produzidos pelas execuções.
 
 O frontend de produção será servido pelo diretório `.output/public` gerado pelo TanStack/Nitro.
 
-A configuração de desenvolvimento usa `127.0.0.1:5173`. O ambiente de Codespaces/Lovable pode alterar portas do servidor web por causa da infraestrutura de sandbox; isso não deve ser usado como referência para a execução nativa do Tauri em Windows.
+A configuração de desenvolvimento usa `127.0.0.1:5173` com porta estrita. O ambiente de Codespaces/Lovable pode servir o frontend por outra URL/porta no navegador; isso não deve ser usado como referência para a execução nativa do Tauri em Windows.
+
+### P0.5 — Runtime Windows
+
+O P0.5 estabelece a primeira cadeia de distribuição do engine:
+
+```text
+engine/daemon.py
+      ↓
+PyInstaller --onefile
+      ↓
+engine/dist/chupacabra-engine.exe
+      ↓
+Tauri resource
+      ↓
+NSIS
+      ↓
+Program Files\Chupacabra System\
+```
+
+O build automatizado está em `scripts/build-engine.ps1` e usa `requirements-build.txt` apenas no ambiente de desenvolvimento/build. Essas dependências não são instaladas no computador final.
+
+O `src-tauri` procura primeiro pelo engine empacotado. Se ele não existir, o modo de desenvolvimento usa `CHUPACABRA_PYTHON`/`CHUPACABRA_ROOT` ou o `python` disponível no PATH.
+
+O diretório de dados pode ser sobrescrito em testes com `CHUPACABRA_DATA_ROOT`.
 
 ### Frontend
 
@@ -184,14 +220,33 @@ O `npx tauri dev` deve ser executado em um ambiente desktop local com suporte gr
 
 ## Build Windows
 
-No ambiente Windows com os pré-requisitos do Tauri instalados:
+O build de distribuição Windows deve ser executado em um ambiente Windows com os pré-requisitos do Tauri instalados.
+
+Para gerar somente o frontend:
 
 ```bash
 npm run build
+```
+
+Para gerar o engine self-contained:
+
+```powershell
+npm run build:engine
+```
+
+Esse passo gera:
+
+```text
+engine/dist/chupacabra-engine.exe
+```
+
+Para gerar a aplicação + engine + instalador NSIS:
+
+```bash
 npx tauri build --bundles nsis
 ```
 
-O resultado esperado é um instalador NSIS `.exe`.
+O `beforeBuildCommand` do Tauri chama `npm run build:desktop`, que executa o build do frontend e, em seguida, o build do engine. O resultado esperado é um instalador NSIS `.exe` que não exige Python instalado no computador final.
 
 Antes da distribuição pública, ainda será necessário configurar assinatura de código, identidade do publicador e validação do instalador em uma instalação limpa do Windows.
 
@@ -214,6 +269,7 @@ chupacabra/
 │   ├── orchestration/
 │   └── storage/
 ├── mapScraper/              # crawler legado e dependências
+├── scripts/                 # automações de build do desktop
 ├── runs/                    # saída local de desenvolvimento
 └── README.md
 ```
@@ -226,7 +282,7 @@ chupacabra/
 4. Implementar armazenamento em diretórios padrão do Windows.
 5. Implementar relatório consolidado + relatórios individuais por cidade.
 6. Implementar tela de histórico das execuções.
-7. Empacotar o runtime Python junto da aplicação Windows.
+7. Validar o engine PyInstaller em Windows limpo.
 8. Gerar e testar o instalador NSIS `perMachine` em Windows limpo.
 9. Assinar o executável/instalador para distribuição.
 
