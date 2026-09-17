@@ -1,16 +1,28 @@
 use std::{
     io::{BufRead, BufReader, Write},
+    path::PathBuf,
     process::{Child, ChildStdin, Command, Stdio},
     sync::Mutex,
     thread,
 };
 
 use serde::Deserialize;
-use tauri::{Emitter, State};
+use tauri::{path::BaseDirectory, Emitter, Manager, State};
 
 struct EngineState {
     process: Mutex<Option<Child>>,
     stdin: Mutex<Option<ChildStdin>>,
+}
+
+impl Drop for EngineState {
+    fn drop(&mut self) {
+        if let Ok(mut process) = self.process.lock() {
+            if let Some(child) = process.as_mut() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -20,8 +32,47 @@ struct EngineCommand {
     payload: serde_json::Value,
 }
 
+fn data_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    if let Ok(root) = std::env::var("CHUPACABRA_DATA_ROOT") {
+        let root = PathBuf::from(root);
+        std::fs::create_dir_all(&root)
+            .map_err(|error| format!("failed to create engine data directory: {error}"))?;
+        return Ok(root);
+    }
+
+    let root = app
+        .path()
+        .document_dir()
+        .map_err(|error| format!("failed to resolve Documents directory: {error}"))?
+        .join("Chupacabra System");
+    std::fs::create_dir_all(&root)
+        .map_err(|error| format!("failed to create Chupacabra data directory: {error}"))?;
+    Ok(root)
+}
+
+fn bundled_engine(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
+    if let Ok(path) = std::env::var("CHUPACABRA_ENGINE") {
+        let path = PathBuf::from(path);
+        if path.exists() {
+            return Ok(Some(path));
+        }
+    }
+
+    let extension = if cfg!(windows) { ".exe" } else { "" };
+    let relative = format!("engine/chupacabra-engine{extension}");
+    let path = app
+        .path()
+        .resolve(relative, BaseDirectory::Resource)
+        .map_err(|error| format!("failed to resolve bundled engine: {error}"))?;
+
+    Ok(path.exists().then_some(path))
+}
+
 fn ensure_engine(app: &tauri::AppHandle, state: &EngineState) -> Result<(), String> {
-    let mut process_guard = state.process.lock().map_err(|_| "engine process lock poisoned")?;
+    let mut process_guard = state
+        .process
+        .lock()
+        .map_err(|_| "engine process lock poisoned")?;
     if process_guard
         .as_mut()
         .is_some_and(|child| child.try_wait().ok().flatten().is_none())
@@ -29,23 +80,42 @@ fn ensure_engine(app: &tauri::AppHandle, state: &EngineState) -> Result<(), Stri
         return Ok(());
     }
 
-    let python = std::env::var("CHUPACABRA_PYTHON").unwrap_or_else(|_| "python".to_string());
-    let root = std::env::var("CHUPACABRA_ROOT")
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let data_root = data_root(app)?;
+    let mut command;
 
-    let mut child = Command::new(python)
-        .current_dir(root)
-        .args(["-m", "engine.daemon"])
+    if let Some(engine) = bundled_engine(app)? {
+        command = Command::new(engine);
+        command.current_dir(&data_root);
+    } else {
+        let python = std::env::var("CHUPACABRA_PYTHON").unwrap_or_else(|_| "python".to_string());
+        let root = std::env::var("CHUPACABRA_ROOT")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("."));
+        command = Command::new(python);
+        command
+            .current_dir(root)
+            .args(["-m", "engine.daemon"]);
+    }
+
+    let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|error| format!("failed to start Python engine: {error}"))?;
+        .map_err(|error| format!("failed to start Chupacabra engine: {error}"))?;
 
-    let stdout = child.stdout.take().ok_or("failed to open engine stdout")?;
-    let stderr = child.stderr.take().ok_or("failed to open engine stderr")?;
-    let stdin = child.stdin.take().ok_or("failed to open engine stdin")?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or("failed to open engine stdout")?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or("failed to open engine stderr")?;
+    let stdin = child
+        .stdin
+        .take()
+        .ok_or("failed to open engine stdin")?;
 
     let app_handle = app.clone();
     thread::spawn(move || {
@@ -65,7 +135,11 @@ fn ensure_engine(app: &tauri::AppHandle, state: &EngineState) -> Result<(), Stri
 
     *process_guard = Some(child);
     drop(process_guard);
-    let mut stdin_guard = state.stdin.lock().map_err(|_| "engine stdin lock poisoned")?;
+
+    let mut stdin_guard = state
+        .stdin
+        .lock()
+        .map_err(|_| "engine stdin lock poisoned")?;
     *stdin_guard = Some(stdin);
     Ok(())
 }
@@ -77,13 +151,21 @@ fn engine_command(
     command: EngineCommand,
 ) -> Result<(), String> {
     ensure_engine(&app, &state)?;
-    let mut stdin = state.stdin.lock().map_err(|_| "engine stdin lock poisoned")?;
+    let mut stdin = state
+        .stdin
+        .lock()
+        .map_err(|_| "engine stdin lock poisoned")?;
     let handle = stdin.as_mut().ok_or("engine stdin is unavailable")?;
+
     let mut payload = serde_json::Map::new();
-    payload.insert("command".into(), serde_json::Value::String(command.command));
+    payload.insert(
+        "command".into(),
+        serde_json::Value::String(command.command),
+    );
     if let serde_json::Value::Object(fields) = command.payload {
         payload.extend(fields);
     }
+
     serde_json::to_writer(&mut *handle, &serde_json::Value::Object(payload))
         .map_err(|error| format!("failed to send engine command: {error}"))?;
     handle
@@ -97,7 +179,10 @@ fn engine_command(
 
 #[tauri::command]
 fn engine_status(state: State<'_, EngineState>) -> Result<String, String> {
-    let mut process = state.process.lock().map_err(|_| "engine process lock poisoned")?;
+    let mut process = state
+        .process
+        .lock()
+        .map_err(|_| "engine process lock poisoned")?;
     Ok(
         if process
             .as_mut()
