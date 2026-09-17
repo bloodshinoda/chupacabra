@@ -147,7 +147,9 @@ class ProspectingRunner:
     ) -> None:
         job.start()
         job.raw_file = str(self.store.job_output_path(run.id, job.id))
-        job.enriched_file = str(self.store.job_output_path(run.id, job.id, enriched=True))
+        # The enrichment pipeline derives the final path from raw.csv, so do
+        # not advertise a different path in the job_started event.
+        job.enriched_file = None
         job.log_file = str(self.store.job_log_path(run.id, job.id))
         self.store.save_job(run.id, job)
         self.events.emit("job_started", job=job.to_dict())
