@@ -68,6 +68,15 @@ fn bundled_engine(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
     Ok(path.exists().then_some(path))
 }
 
+fn hide_console_window(command: &mut Command) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+}
+
 fn ensure_engine(app: &tauri::AppHandle, state: &EngineState) -> Result<(), String> {
     let mut process_guard = state
         .process
@@ -97,6 +106,7 @@ fn ensure_engine(app: &tauri::AppHandle, state: &EngineState) -> Result<(), Stri
             .args(["-m", "engine.daemon"]);
     }
 
+    hide_console_window(&mut command);
     let mut child = command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
