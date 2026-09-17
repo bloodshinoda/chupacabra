@@ -19,10 +19,13 @@ class EngineDaemon:
         self._lock = threading.Lock()
         self._run_thread: threading.Thread | None = None
 
-    def _emit_event(self, event) -> None:
-        payload = event.to_dict()
+    @staticmethod
+    def _emit_payload(payload: dict) -> None:
         sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
         sys.stdout.flush()
+
+    def _emit_event(self, event) -> None:
+        self._emit_payload(event.to_dict())
 
     def _start_run(self, payload: dict) -> None:
         with self._lock:
@@ -67,8 +70,11 @@ class EngineDaemon:
             self.runner.cancel()
         elif command == "status":
             run = self.runner.active_run
-            self._emit_event(
-                type("StatusEvent", (), {"to_dict": lambda self: {"type": "engine_status", "run": run.to_dict() if run else None}})()
+            self._emit_payload(
+                {
+                    "type": "engine_status",
+                    "run": run.to_dict() if run else None,
+                }
             )
         else:
             raise ValueError(f"unknown command: {command}")
@@ -81,9 +87,7 @@ class EngineDaemon:
             try:
                 self._dispatch(json.loads(line))
             except Exception as exc:
-                self._emit_event(
-                    type("ErrorEvent", (), {"to_dict": lambda self: {"type": "engine_error", "error": str(exc)}})()
-                )
+                self._emit_payload({"type": "engine_error", "error": str(exc)})
 
 
 if __name__ == "__main__":
