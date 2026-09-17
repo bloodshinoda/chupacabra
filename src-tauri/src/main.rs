@@ -1,7 +1,12 @@
-use std::{io::{BufRead, BufReader, Write}, process::{Child, ChildStdin, Command, Stdio}, sync::Mutex, thread};
+use std::{
+    io::{BufRead, BufReader, Write},
+    process::{Child, ChildStdin, Command, Stdio},
+    sync::Mutex,
+    thread,
+};
 
 use serde::Deserialize;
-use tauri::{Emitter, Manager, State};
+use tauri::{Emitter, State};
 
 struct EngineState {
     process: Mutex<Option<Child>>,
@@ -17,7 +22,10 @@ struct EngineCommand {
 
 fn ensure_engine(app: &tauri::AppHandle, state: &EngineState) -> Result<(), String> {
     let mut process_guard = state.process.lock().map_err(|_| "engine process lock poisoned")?;
-    if process_guard.as_ref().is_some_and(|child| child.try_wait().ok().flatten().is_none()) {
+    if process_guard
+        .as_ref()
+        .is_some_and(|child| child.try_wait().ok().flatten().is_none())
+    {
         return Ok(());
     }
 
@@ -78,19 +86,28 @@ fn engine_command(
     }
     serde_json::to_writer(&mut *handle, &serde_json::Value::Object(payload))
         .map_err(|error| format!("failed to send engine command: {error}"))?;
-    handle.write_all(b"\n").map_err(|error| format!("failed to flush engine command: {error}"))?;
-    handle.flush().map_err(|error| format!("failed to flush engine command: {error}"))?;
+    handle
+        .write_all(b"\n")
+        .map_err(|error| format!("failed to write engine command: {error}"))?;
+    handle
+        .flush()
+        .map_err(|error| format!("failed to flush engine command: {error}"))?;
     Ok(())
 }
 
 #[tauri::command]
 fn engine_status(state: State<'_, EngineState>) -> Result<String, String> {
     let process = state.process.lock().map_err(|_| "engine process lock poisoned")?;
-    Ok(if process.as_ref().is_some_and(|child| child.try_wait().ok().flatten().is_none()) {
-        "running".to_string()
-    } else {
-        "stopped".to_string()
-    })
+    Ok(
+        if process
+            .as_ref()
+            .is_some_and(|child| child.try_wait().ok().flatten().is_none())
+        {
+            "running".to_string()
+        } else {
+            "stopped".to_string()
+        },
+    )
 }
 
 fn main() {
@@ -100,12 +117,6 @@ fn main() {
             stdin: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![engine_command, engine_status])
-        .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(tauri::Manager::path(app.handle()).unwrap_or_else(|_| unreachable!()));
-            }
-            Ok(())
-        })
         .run(tauri::generate_context!())
         .expect("error while running Chupacabra");
 }
