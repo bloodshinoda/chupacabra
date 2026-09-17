@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.chupacabra.system",
   "build": {
-    "beforeDevCommand": "npm run dev -- --host 127.0.0.1",
+    "beforeDevCommand": "npm run dev -- --host 127.0.0.1 --port 5173 --strictPort",
     "devUrl": "http://127.0.0.1:5173",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../.output/public"
@@ -25,6 +25,13 @@
     }
   },
   "bundle": {
-    "active": false
+    "active": true,
+    "targets": ["nsis"],
+    "windows": {
+      "nsis": {
+        "installMode": "perMachine",
+        "startMenuFolder": "Chupacabra System"
+      }
+    }
   }
 }
