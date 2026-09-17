@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import logging
 from pathlib import Path
 import random
+import shutil
 import sys
 import threading
 import time
@@ -49,10 +50,16 @@ class ProspectingRunner:
 
     def pause(self) -> None:
         self._resume_gate.clear()
+        if self._active_run is not None and self._active_run.status is RunStatus.RUNNING:
+            self._active_run.status = RunStatus.PAUSED
+            self.store.save_run(self._active_run)
         self.events.emit("run_paused")
 
     def resume(self) -> None:
         self._resume_gate.set()
+        if self._active_run is not None and self._active_run.status is RunStatus.PAUSED:
+            self._active_run.status = RunStatus.RUNNING
+            self.store.save_run(self._active_run)
         self.events.emit("run_resumed")
 
     def cancel(self) -> None:
@@ -105,8 +112,7 @@ class ProspectingRunner:
                     self.store.save_job(run.id, job)
                     continue
 
-                slug = spec[0]
-                self._run_job(run, job, slug, selected, lang, country)
+                self._run_job(run, job, selected, lang, country)
                 run.recalculate()
                 self.store.save_run(run)
 
@@ -145,15 +151,12 @@ class ProspectingRunner:
         self,
         run: ProspectingRun,
         job: SearchJob,
-        slug: str,
         profile: RunProfile,
         lang: str,
         country: str,
     ) -> None:
         job.start()
         job.raw_file = str(self.store.job_output_path(run.id, job.id))
-        # The enrichment pipeline derives the final path from raw.csv, so do
-        # not advertise a different path in the job_started event.
         job.enriched_file = None
         job.log_file = str(self.store.job_log_path(run.id, job.id))
         self.store.save_job(run.id, job)
@@ -175,8 +178,6 @@ class ProspectingRunner:
                 output_file=job.raw_file,
             )
 
-            # Reuse the existing enrichment/scoring implementation rather than
-            # duplicating business logic during P0.
             sys.path.insert(0, str(self.crawler.mapscraper_root))
             from pipeline.orchestrator import run_pipeline
 
@@ -189,7 +190,11 @@ class ProspectingRunner:
                 web_timeout=profile.web_timeout,
             )
 
-            enriched = Path(job.raw_file).with_name(Path(job.raw_file).stem + "_enriched.csv")
+            generated = Path(job.raw_file).with_name(Path(job.raw_file).stem + "_enriched.csv")
+            enriched = self.store.job_output_path(run.id, job.id, enriched=True)
+            if generated != enriched:
+                enriched.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(generated), str(enriched))
             job.enriched_file = str(enriched)
             job.complete(result.count)
             self.events.emit("job_completed", job=job.to_dict())
