@@ -23,7 +23,7 @@ struct EngineCommand {
 fn ensure_engine(app: &tauri::AppHandle, state: &EngineState) -> Result<(), String> {
     let mut process_guard = state.process.lock().map_err(|_| "engine process lock poisoned")?;
     if process_guard
-        .as_ref()
+        .as_mut()
         .is_some_and(|child| child.try_wait().ok().flatten().is_none())
     {
         return Ok(());
@@ -97,10 +97,10 @@ fn engine_command(
 
 #[tauri::command]
 fn engine_status(state: State<'_, EngineState>) -> Result<String, String> {
-    let process = state.process.lock().map_err(|_| "engine process lock poisoned")?;
+    let mut process = state.process.lock().map_err(|_| "engine process lock poisoned")?;
     Ok(
         if process
-            .as_ref()
+            .as_mut()
             .is_some_and(|child| child.try_wait().ok().flatten().is_none())
         {
             "running".to_string()
