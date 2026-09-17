@@ -7,7 +7,7 @@ import tempfile
 import types
 import unittest
 
-from engine.crawler import CrawlerResult
+from engine.crawler import CrawlResult
 from engine.orchestration.runner import ProspectingRunner
 from engine.storage import RunStore
 
@@ -29,7 +29,7 @@ class FakeCrawler:
             writer = csv.writer(handle)
             writer.writerow(["id", "title"])
             writer.writerow(["1", "Lead de teste"])
-        return CrawlerResult(count=1, output_file=str(path))
+        return CrawlResult(raw_file=str(path), count=1)
 
 
 class EngineLifecycleTests(unittest.TestCase):
