@@ -1,6 +1,7 @@
 """Stable engine-facing adapter for the existing placesCrawlerV2 implementation."""
 from dataclasses import dataclass
 from pathlib import Path
+import csv
 import sys
 from typing import Any
 
@@ -13,6 +14,12 @@ class CrawlResult:
 
 class CrawlerAdapter:
     """Keep the engine independent from the legacy mapScraper package layout."""
+
+    _COLUMNS = [
+        "id", "url_place", "title", "category", "address", "phoneNumber",
+        "completePhoneNumber", "domain", "url", "coor", "stars", "reviews",
+        "source_query",
+    ]
 
     def __init__(self, repository_root: str | Path | None = None) -> None:
         root = Path(repository_root or Path(__file__).resolve().parents[2])
@@ -44,4 +51,12 @@ class CrawlerAdapter:
             queries, lang, country, limit, max_concurrent
         )
         crawler.save_to_csv(results, str(destination))
+
+        # The legacy saver intentionally skips file creation for zero results.
+        # The engine keeps a valid empty CSV so the enrichment pipeline can
+        # distinguish "zero leads" from "job crashed before producing output".
+        if not destination.exists():
+            with destination.open("w", newline="", encoding="utf-8") as handle:
+                csv.writer(handle).writerow(self._COLUMNS)
+
         return CrawlResult(raw_file=str(destination), count=len(results))
