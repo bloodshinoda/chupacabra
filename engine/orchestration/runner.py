@@ -132,7 +132,12 @@ class ProspectingRunner:
             self.store.save_run(run)
             self._active_run = None
 
-        event = "run_cancelled" if run.status is RunStatus.CANCELLED else "run_completed"
+        if run.status is RunStatus.CANCELLED:
+            event = "run_cancelled"
+        elif run.status is RunStatus.FAILED:
+            event = "run_failed"
+        else:
+            event = "run_completed"
         self.events.emit(event, run=run.to_dict())
         return run
 
