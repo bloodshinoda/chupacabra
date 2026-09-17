@@ -2,7 +2,7 @@
 
 **B2B Prospect Engine** para pesquisa de empresas por cidade e nicho, com crawler assíncrono, enriquecimento de leads, execução controlada por perfis e interface desktop baseada em Tauri.
 
-> Projeto em desenvolvimento. O frontend atual foi originalmente gerado com Lovable/TanStack Start e está sendo integrado ao engine Python legado do MapScraper.
+> Projeto em desenvolvimento. O frontend atual foi originalmente feito com TanStack Start e está sendo integrado ao engine Python legado que rodava via CLI.
 
 ## Objetivo
 
