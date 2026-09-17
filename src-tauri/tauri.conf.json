@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm run dev -- --host 127.0.0.1 --port 5173 --strictPort",
     "devUrl": "http://127.0.0.1:5173",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "npm run build:desktop",
     "frontendDist": "../.output/public"
   },
   "app": {
@@ -27,6 +27,9 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "resources": {
+      "../engine/dist/chupacabra-engine.exe": "engine/chupacabra-engine.exe"
+    },
     "windows": {
       "nsis": {
         "installMode": "perMachine",
