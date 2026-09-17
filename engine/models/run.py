@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Optional
 
-from .job import SearchJob
+from .job import JobStatus, SearchJob
 
 
 class RunStatus(StrEnum):
@@ -37,8 +37,8 @@ class ProspectingRun:
 
     def recalculate(self) -> None:
         self.total_jobs = len(self.jobs)
-        self.completed_jobs = sum(j.status == "completed" for j in self.jobs)
-        self.failed_jobs = sum(j.status == "failed" for j in self.jobs)
+        self.completed_jobs = sum(j.status is JobStatus.COMPLETED for j in self.jobs)
+        self.failed_jobs = sum(j.status is JobStatus.FAILED for j in self.jobs)
 
     def complete(self) -> None:
         self.recalculate()
