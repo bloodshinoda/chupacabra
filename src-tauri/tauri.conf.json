@@ -25,16 +25,6 @@
     }
   },
   "bundle": {
-    "active": true,
-    "targets": ["nsis"],
-    "resources": {
-      "../engine/dist/chupacabra-engine.exe": "engine/chupacabra-engine.exe"
-    },
-    "windows": {
-      "nsis": {
-        "installMode": "perMachine",
-        "startMenuFolder": "Chupacabra System"
-      }
-    }
+    "active": false
   }
 }
