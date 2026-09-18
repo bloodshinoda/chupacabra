@@ -1,3 +1,4 @@
 # Dependências usadas apenas para gerar o executável self-contained do engine.
 # O usuário final não precisa instalar Python ou estas dependências.
+-r mapScraper/requirements.txt
 pyinstaller>=6,<7
