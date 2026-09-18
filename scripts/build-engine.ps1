@@ -11,7 +11,7 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 }
 
 Write-Host "[Chupacabra] Verificando PyInstaller..."
-python -c "import PyInstaller" 2>$null
+python -c "import PyInstaller" *> $null
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[Chupacabra] Instalando dependências de build..."
     python -m pip install -r (Join-Path $Root "requirements-build.txt")
