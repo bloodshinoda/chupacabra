@@ -41,6 +41,8 @@ python -m PyInstaller `
     --clean `
     --onefile `
     --name chupacabra-engine `
+    --distpath $EngineDist `
+    --workpath $EngineBuild `
     --paths $Root `
     --paths (Join-Path $Root "mapScraper") `
     --hidden-import pipeline.orchestrator `
