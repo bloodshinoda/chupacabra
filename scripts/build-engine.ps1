@@ -11,10 +11,18 @@ if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
 }
 
 Write-Host "[Chupacabra] Verificando PyInstaller..."
-python -c "import PyInstaller" *> $null
-if ($LASTEXITCODE -ne 0) {
+$previousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+python -c "import PyInstaller" 1>$null 2>$null
+$pyInstallerCheckExitCode = $LASTEXITCODE
+$ErrorActionPreference = $previousErrorActionPreference
+
+if ($pyInstallerCheckExitCode -ne 0) {
     Write-Host "[Chupacabra] Instalando dependências de build..."
     python -m pip install -r (Join-Path $Root "requirements-build.txt")
+    if ($LASTEXITCODE -ne 0) {
+        throw "Falha ao instalar as dependências de build do engine."
+    }
 }
 
 New-Item -ItemType Directory -Force -Path $EngineDist | Out-Null
@@ -43,6 +51,10 @@ python -m PyInstaller `
     --collect-all aiohttp `
     --collect-all pandas `
     $EngineSource
+
+if ($LASTEXITCODE -ne 0) {
+    throw "PyInstaller falhou ao gerar o engine Windows."
+}
 
 if (-not (Test-Path $EngineExe)) {
     throw "PyInstaller terminou sem gerar $EngineExe"
