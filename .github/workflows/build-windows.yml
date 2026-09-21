@@ -43,6 +43,12 @@ jobs:
       - name: Instalar dependências Python do engine
         run: python -m pip install -r mapScraper/requirements.txt
 
+      - name: Validar testes Python
+        run: python -m unittest discover -s tests -v
+
+      - name: Validar build do frontend
+        run: npm run build
+
       - name: Gerar instalador NSIS
         run: npx tauri build --bundles nsis
 
