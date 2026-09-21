@@ -13,6 +13,8 @@ from engine.orchestration.runner import ProspectingRunner
 from engine.orchestration.targets import CATEGORIES, build_jobs
 from engine.storage import RunStore
 
+MAX_JOBS = 10_000
+
 
 class EngineDaemon:
     def __init__(self) -> None:
@@ -48,11 +50,13 @@ class EngineDaemon:
                     TargetLocation(
                         id=str(target["id"]),
                         country=str(target.get("country", "BR")),
-                        state_code=str(target["state_code"]),
-                        state_name=str(target.get("state_name", target["state_code"])),
+                        state_code=str(target.get("state_code", "")),
+                        state_name=str(target.get("state_name", target.get("state_code", ""))),
                         city=str(target["city"]),
                         latitude=target.get("latitude"),
                         longitude=target.get("longitude"),
+                        population_2022=target.get("population_2022"),
+                        is_capital=bool(target.get("is_capital", False)),
                     )
                     for target in raw_targets
                 ]
@@ -65,6 +69,14 @@ class EngineDaemon:
                 city = str(payload.get("city", "custom"))
                 category = str(payload.get("category", "custom"))
                 jobs = [("manual_001", city, category, query)]
+
+            max_jobs = int(payload.get("max_jobs", MAX_JOBS))
+            if max_jobs < 1 or max_jobs > MAX_JOBS:
+                raise ValueError(f"max_jobs deve estar entre 1 e {MAX_JOBS}")
+            if len(jobs) > max_jobs:
+                raise ValueError(
+                    f"A matriz gerou {len(jobs):,} jobs, acima do limite configurado de {max_jobs:,}."
+                )
 
             if not jobs:
                 raise ValueError("Nenhum alvo selecionado")
