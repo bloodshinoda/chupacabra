@@ -1,4 +1,8 @@
-"""Default prospecting matrix migrated from the legacy BAT launcher."""
+"""Categories and target planning helpers for prospecting runs."""
+from __future__ import annotations
+
+from engine.geography.models import TargetLocation
+from engine.geography.planner import build_matrix_jobs
 
 CATEGORIES: tuple[tuple[str, str], ...] = (
     ("agencias_publicidade", "Agencias de publicidade"),
@@ -15,15 +19,6 @@ CATEGORIES: tuple[tuple[str, str], ...] = (
     ("clinicas_odontologicas", "Clinicas odontologicas"),
 )
 
-CITIES: tuple[str, ...] = (
-    "Chapeco",
-    "Xanxere",
-    "Concordia",
-)
-
-
-# Additional targets present in the BAT as commented/ready entries. They are
-# deliberately not enabled by default until the UI exposes target selection.
 OPTIONAL_CATEGORIES: tuple[tuple[str, str], ...] = (
     ("escritorios_advocacia", "Escritorios de advocacia"),
     ("academias", "Academias"),
@@ -33,18 +28,29 @@ OPTIONAL_CATEGORIES: tuple[tuple[str, str], ...] = (
     ("distribuidoras", "Distribuidoras"),
 )
 
-OPTIONAL_CITIES: tuple[str, ...] = ("Xaxim", "Pinhalzinho")
-
 
 def build_queries(
-    cities: tuple[str, ...] = CITIES,
+    cities: tuple[str, ...],
     categories: tuple[tuple[str, str], ...] = CATEGORIES,
     state: str = "SC",
 ) -> list[tuple[str, str, str, str]]:
-    """Return (slug, city, category_slug, query) tuples."""
-    jobs: list[tuple[str, str, str, str]] = []
-    for city in cities:
-        for slug, label in categories:
-            query = f"{label} em {city} {state}"
-            jobs.append((f"{slug}_{city.lower()}", city, slug, query))
-    return jobs
+    """Backward-compatible helper for callers that already have city names."""
+    locations = [
+        TargetLocation(
+            id=f"br:legacy:{state}:{city.casefold()}",
+            country="BR",
+            state_code=state.upper(),
+            state_name=state.upper(),
+            city=city,
+        )
+        for city in cities
+    ]
+    return build_matrix_jobs(locations, list(categories))
+
+
+def build_jobs(
+    locations: list[TargetLocation],
+    categories: list[tuple[str, str]] | None = None,
+) -> list[tuple[str, str, str, str]]:
+    """Build a complete city × category matrix for the runner."""
+    return build_matrix_jobs(locations, categories or list(CATEGORIES))
