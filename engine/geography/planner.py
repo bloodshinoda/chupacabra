@@ -16,7 +16,8 @@ def build_matrix_jobs(
             if job_slug in seen:
                 continue
             seen.add(job_slug)
-            query = f"{label} em {location.city} {location.state_code}"
+            suffix = f"{location.city} {location.state_code}" if location.country == "BR" else f"{location.city} {location.country}"
+            query = f"{label} em {suffix}"
             jobs.append((job_slug, location.city, category_slug, query))
     return jobs
 
