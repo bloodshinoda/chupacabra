@@ -68,6 +68,11 @@ export async function loadBrazilStates(): Promise<Array<{ id: string; code: stri
   return response.states ?? [];
 }
 
+export async function loadWorldCities(query: string, countryCode?: string): Promise<TargetLocation[]> {
+  const response = await requestEngineCatalog("catalog_world_cities", { query, country_code: countryCode });
+  return response.cities ?? [];
+}
+
 export async function loadBrazilCities(stateCode: string, search = ""): Promise<TargetLocation[]> {
   const response = await requestEngineCatalog("catalog_cities", { state_code: stateCode, search });
   return response.cities ?? [];
