@@ -90,6 +90,7 @@ function ChupacabraDashboard() {
   const [leadCount, setLeadCount] = useState(0);
   const [profile, setProfile] = useState<EngineProfile>("balanced");
   const [targets, setTargets] = useState<TargetLocation[]>([]);
+  const [maxJobs, setMaxJobs] = useState(5000);
   const [categories] = useState<Array<[string, string]>>([["agencias_publicidade", "Agencias de publicidade"], ["graficas", "Graficas"], ["graficas_rapidas", "Grafica rapida"], ["comunicacao_visual", "Comunicacao visual"], ["marketing_digital", "Agencias de marketing digital"], ["brindes_corporativos", "Brindes corporativos"], ["eventos_corporativos", "Organizacao de eventos corporativos"], ["serigrafia_estamparia", "Serigrafia e estamparia"], ["imobiliarias", "Imobiliarias"], ["concessionarias", "Concessionarias de veiculos"], ["construtoras", "Construtoras"], ["clinicas_odontologicas", "Clinicas odontologicas"]]);
 
   useEffect(() => {
@@ -177,7 +178,11 @@ function ChupacabraDashboard() {
 
     try {
       if (!targets.length) throw new Error("Selecione ao menos uma cidade na Matriz de Alvos.");
-      await startRun({ profile, targets, categories });
+      const plannedJobs = targets.length * categories.length;
+      if (plannedJobs > maxJobs) {
+        throw new Error(`A matriz possui ${plannedJobs.toLocaleString("pt-BR")} jobs e o limite atual é ${maxJobs.toLocaleString("pt-BR")}.`);
+      }
+      await startRun({ profile, targets, categories, max_jobs: maxJobs });
       setScanState("running");
     } catch (error) {
       setScanState("idle");
@@ -231,7 +236,7 @@ function ChupacabraDashboard() {
 
         <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
           {view === "dashboard" && <DashboardView scanState={scanState} setScanState={setScanState} startScan={startScan} onPause={handlePause} onResume={handleResume} onCancel={handleCancel} profile={profile} setProfile={setProfile} progress={progress} leadCount={leadCount} logs={logs} />}
-          {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} />}
+          {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} maxJobs={maxJobs} setMaxJobs={setMaxJobs} />}
           {view === "leads" && <LeadsView />}
           {view === "outreach" && <OutreachView />}
           {view === "reports" && <ReportsView />}
@@ -299,70 +304,218 @@ function DashboardView({ scanState, setScanState, startScan, onPause, onResume, 
   </>;
 }
 
-function TargetsView({ targets, setTargets, categories }: { targets: TargetLocation[]; setTargets: (targets: TargetLocation[]) => void; categories: Array<[string, string]> }) {
+function TargetsView({
+  targets,
+  setTargets,
+  categories,
+  maxJobs,
+  setMaxJobs,
+}: {
+  targets: TargetLocation[];
+  setTargets: (targets: TargetLocation[]) => void;
+  categories: Array<[string, string]>;
+  maxJobs: number;
+  setMaxJobs: (value: number) => void;
+}) {
   const [mode, setMode] = useState<"br" | "world">("br");
   const [stateCode, setStateCode] = useState("SC");
   const [states, setStates] = useState<Array<{ id: string; code: string; name: string }>>([]);
   const [cities, setCities] = useState<TargetLocation[]>([]);
   const [worldCities, setWorldCities] = useState<TargetLocation[]>([]);
   const [search, setSearch] = useState("");
+  const [worldCountry, setWorldCountry] = useState("");
+  const [scope, setScope] = useState<"manual" | "all" | "capitals">("manual");
+  const [minPopulation, setMinPopulation] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const refreshBrazil = async () => {
-    if (!isTauriRuntime()) { setError("Abra o aplicativo Tauri para carregar o catálogo geográfico."); return; }
-    setLoading(true); setError("");
-    try { setCities(await loadBrazilCities(stateCode, search)); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { setLoading(false); }
+    if (!isTauriRuntime()) {
+      setError("Abra o aplicativo Tauri para carregar o catálogo geográfico.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      setCities(await loadBrazilCities(stateCode, search));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const refreshWorld = async () => {
-    if (!isTauriRuntime()) { setError("Abra o aplicativo Tauri para pesquisar cidades internacionais."); return; }
+    if (!isTauriRuntime()) {
+      setError("Abra o aplicativo Tauri para pesquisar cidades internacionais.");
+      return;
+    }
     if (search.trim().length < 2) return;
-    setLoading(true); setError("");
-    try { setWorldCities(await loadWorldCities(search)); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { setLoading(false); }
+    setLoading(true);
+    setError("");
+    try {
+      setWorldCities(await loadWorldCities(search, worldCountry || undefined));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    if (mode === "br") void loadBrazilStates().then(setStates).catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)));
+    if (mode === "br") {
+      void loadBrazilStates()
+        .then(setStates)
+        .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)));
+    }
   }, [mode]);
 
-  useEffect(() => { if (mode === "br") void refreshBrazil(); }, [stateCode, mode]);
+  useEffect(() => {
+    if (mode === "br") void refreshBrazil();
+  }, [stateCode, mode]);
 
-  const results = mode === "br" ? cities : worldCities;
+  const brazilResults = cities.filter((city) => {
+    if (scope === "capitals" && !city.is_capital) return false;
+    if (minPopulation > 0 && (city.population_2022 ?? 0) < minPopulation) return false;
+    return true;
+  });
+
+  const results = mode === "br" ? brazilResults : worldCities;
+  const plannedJobs = targets.length * categories.length;
+  const overLimit = plannedJobs > maxJobs;
+
   const toggleCity = (city: TargetLocation) => {
     const exists = targets.some((item) => item.id === city.id);
     setTargets(exists ? targets.filter((item) => item.id !== city.id) : [...targets, city]);
   };
 
+  const addAllVisible = () => {
+    const incoming = results.slice(0, Math.max(0, Math.floor(maxJobs / Math.max(categories.length, 1))));
+    const merged = new Map(targets.map((target) => [target.id, target]));
+    incoming.forEach((target) => merged.set(target.id, target));
+    const next = [...merged.values()];
+    if (next.length * categories.length > maxJobs) {
+      setError("A seleção excede o limite de jobs. Reduza o número de categorias ou aumente o limite.");
+      return;
+    }
+    setTargets(next);
+    setError("");
+  };
+
   return <>
-    <div className="mb-4 flex gap-2">
-      <Button variant={mode === "br" ? "default" : "outline"} onClick={() => setMode("br")}>Brasil · IBGE</Button>
-      <Button variant={mode === "world" ? "default" : "outline"} onClick={() => setMode("world")}>Internacional</Button>
-    </div>
-    <PageIntro eyebrow="Definição de território" title="Matriz de Alvos" description="Combine cidades reais com os segmentos do engine." action={<span className="hidden border border-primary/20 bg-primary/5 px-3 py-2 font-mono text-xs text-primary sm:block">{targets.length * categories.length} combinações</span>} />
+    <PageIntro
+      eyebrow="Definição de território"
+      title="Matriz de Alvos"
+      description="Combine cidades, filtros demográficos e nichos antes de gerar a campanha."
+      action={
+        <div className={cn(
+          "border px-3 py-2 font-mono text-xs",
+          overLimit ? "border-destructive/40 bg-destructive/5 text-destructive" : "border-primary/20 bg-primary/5 text-primary"
+        )}>
+          {plannedJobs.toLocaleString("pt-BR")} jobs
+        </div>
+      }
+    />
+
     <section className="panel p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
-        {mode === "br" ? <>
-          <label className="block lg:w-56"><span className="field-label">UF</span><select className="field mt-2" value={stateCode} onChange={(e)=>setStateCode(e.target.value)}>{states.length ? states.map((state)=><option key={state.code} value={state.code}>{state.code} — {state.name}</option>) : <option>SC</option>}</select></label>
-          <label className="block flex-1"><span className="field-label">Buscar município</span><input className="field mt-2" value={search} onChange={(e)=>setSearch(e.target.value)} onKeyDown={(e)=>e.key==="Enter"&&void refreshBrazil()} placeholder="Ex: Chapecó" /></label>
-          <Button onClick={()=>void refreshBrazil()} disabled={loading}>{loading ? "Carregando..." : "Atualizar municípios"}</Button>
-        </> : <>
-          <label className="block flex-1"><span className="field-label">Buscar cidade no mundo</span><input className="field mt-2" value={search} onChange={(e)=>setSearch(e.target.value)} onKeyDown={(e)=>e.key==="Enter"&&void refreshWorld()} placeholder="Ex: Berlin, Miami, Tokyo" /></label>
-          <Button onClick={()=>void refreshWorld()} disabled={loading}>{loading ? "Buscando..." : "Buscar cidades"}</Button>
-        </>}
-      </div>
-      {error && <p className="mt-4 border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{error}</p>}
-      <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {results.slice(0, 60).map((city) => <button key={city.id} onClick={()=>toggleCity(city)} className={cn("border p-3 text-left transition-colors", targets.some((item)=>item.id===city.id) ? "border-primary bg-primary/10" : "border-border bg-surface hover:border-primary/40")}><div className="flex items-center justify-between gap-3"><span className="text-sm font-medium">{city.city}</span>{targets.some((item)=>item.id===city.id)&&<Check className="size-4 text-primary"/>}</div><span className="mt-1 block font-mono text-[9px] uppercase text-muted-foreground">{city.state_code || city.country} · {city.state_name || "Internacional"}</span></button>)}
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap gap-2">
+          <Button variant={mode === "br" ? "default" : "outline"} onClick={() => setMode("br")}>Brasil · IBGE</Button>
+          <Button variant={mode === "world" ? "default" : "outline"} onClick={() => setMode("world")}>Internacional</Button>
+        </div>
+
+        {mode === "br" ? (
+          <>
+            <div className="grid gap-4 lg:grid-cols-[220px_1fr_220px]">
+              <label className="block">
+                <span className="field-label">UF</span>
+                <select className="field mt-2" value={stateCode} onChange={(e) => setStateCode(e.target.value)}>
+                  {states.length ? states.map((state) => <option key={state.code} value={state.code}>{state.code} — {state.name}</option>) : <option value="SC">SC</option>}
+                </select>
+              </label>
+              <label className="block">
+                <span className="field-label">Buscar município</span>
+                <input className="field mt-2" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void refreshBrazil()} placeholder="Ex: Chapecó" />
+              </label>
+              <label className="block">
+                <span className="field-label">Escopo</span>
+                <select className="field mt-2" value={scope} onChange={(e) => setScope(e.target.value as typeof scope)}>
+                  <option value="manual">Seleção manual</option>
+                  <option value="all">Todos os municípios</option>
+                  <option value="capitals">Capital da UF</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-[220px_1fr_auto]">
+              <label className="block">
+                <span className="field-label">População mínima · Censo 2022</span>
+                <input className="field mt-2" type="number" min={0} step={1000} value={minPopulation} onChange={(e) => setMinPopulation(Math.max(0, Number(e.target.value) || 0))} />
+              </label>
+              <div className="flex items-end gap-2">
+                <Button variant="outline" onClick={() => void refreshBrazil()} disabled={loading}>{loading ? "Carregando..." : "Atualizar municípios"}</Button>
+                <Button variant="outline" onClick={addAllVisible} disabled={!brazilResults.length}>Adicionar filtrados</Button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-[1fr_220px_auto]">
+            <label className="block">
+              <span className="field-label">Buscar cidade no mundo</span>
+              <input className="field mt-2" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void refreshWorld()} placeholder="Ex: Berlin, Miami, Tokyo" />
+            </label>
+            <label className="block">
+              <span className="field-label">País · ISO 3166</span>
+              <input className="field mt-2 uppercase" maxLength={2} value={worldCountry} onChange={(e) => setWorldCountry(e.target.value.toUpperCase())} placeholder="Opcional" />
+            </label>
+            <Button onClick={() => void refreshWorld()} disabled={loading}>{loading ? "Buscando..." : "Buscar cidades"}</Button>
+          </div>
+        )}
+
+        {error && <p className="border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{error}</p>}
+
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {results.slice(0, 60).map((city) => (
+            <button key={city.id} onClick={() => toggleCity(city)} className={cn(
+              "border p-3 text-left transition-colors",
+              targets.some((item) => item.id === city.id) ? "border-primary bg-primary/10" : "border-border bg-surface hover:border-primary/40"
+            )}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">{city.city}</span>
+                {targets.some((item) => item.id === city.id) && <Check className="size-4 text-primary" />}
+              </div>
+              <span className="mt-1 block font-mono text-[9px] uppercase text-muted-foreground">
+                {city.state_code || city.country} · {city.state_name || "Internacional"}
+              </span>
+              {city.population_2022 != null && <span className="mt-1 block font-mono text-[9px] text-info">{city.population_2022.toLocaleString("pt-BR")} hab. · {city.is_capital ? "capital" : "município"}</span>}
+            </button>
+          ))}
+        </div>
       </div>
     </section>
+
     <section className="panel mt-4 p-5">
-      <div className="flex items-center justify-between"><div><h3 className="font-display font-semibold">Cidades selecionadas</h3><p className="mt-1 text-xs text-muted-foreground">{targets.length} localidades · {targets.length * categories.length} jobs previstos</p></div><Button variant="outline" onClick={()=>setTargets([])} disabled={!targets.length}>Limpar</Button></div>
-      <div className="mt-4 flex flex-wrap gap-2">{targets.map((target)=><span key={target.id} className="border border-primary/20 bg-primary/5 px-3 py-2 text-xs">{target.city} / {target.state_code || target.country}</span>)}</div>
+      <div className="grid gap-4 lg:grid-cols-[1fr_220px_auto] lg:items-end">
+        <div>
+          <h3 className="font-display font-semibold">Campanha planejada</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{targets.length} localidades · {plannedJobs.toLocaleString("pt-BR")} jobs previstos</p>
+        </div>
+        <label className="block">
+          <span className="field-label">Limite máximo de jobs</span>
+          <input className="field mt-2" type="number" min={1} max={10000} step={100} value={maxJobs} onChange={(e) => setMaxJobs(Math.min(10000, Math.max(1, Number(e.target.value) || 1)))} />
+        </label>
+        <Button variant="outline" onClick={() => { setTargets([]); setError(""); }} disabled={!targets.length}>Limpar</Button>
+      </div>
+
+      {overLimit && <p className="mt-4 border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">A campanha ultrapassa o limite. O engine também bloqueia matrizes acima de 10.000 jobs.</p>}
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {targets.map((target) => (
+          <button key={target.id} onClick={() => toggleCity(target)} className="border border-primary/20 bg-primary/5 px-3 py-2 text-xs hover:border-primary/50">
+            {target.city} / {target.state_code || target.country}
+          </button>
+        ))}
+      </div>
     </section>
   </>;
 }
