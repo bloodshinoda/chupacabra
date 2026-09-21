@@ -59,6 +59,7 @@ export async function startRun(options: {
   category?: string;
   targets?: TargetLocation[];
   categories?: Array<[string, string]>;
+  max_jobs?: number;
 }): Promise<void> {
   await sendEngineCommand("start_run", options);
 }
