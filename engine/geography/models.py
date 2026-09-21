@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass
 
 @dataclass(frozen=True, slots=True)
 class TargetLocation:
-    """A selectable municipality with stable IBGE identity when available."""
+    """A selectable municipality/city with stable geographic identity."""
 
     id: str
     country: str
@@ -15,6 +15,8 @@ class TargetLocation:
     city: str
     latitude: float | None = None
     longitude: float | None = None
+    population_2022: int | None = None
+    is_capital: bool = False
 
     def to_dict(self) -> dict:
         return asdict(self)
