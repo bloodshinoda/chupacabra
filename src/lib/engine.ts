@@ -11,6 +11,8 @@ export type TargetLocation = {
   city: string;
   latitude?: number | null;
   longitude?: number | null;
+  population_2022?: number | null;
+  is_capital?: boolean;
 };
 
 export type EngineEvent = {
@@ -49,7 +51,12 @@ export async function sendEngineCommand(
   if (!isTauriRuntime()) {
     throw new Error("O engine está disponível apenas no aplicativo desktop Tauri.");
   }
-  await invoke("engine_command", { command, ...payload });
+  await invoke("engine_command", {
+    command: {
+      command,
+      ...payload,
+    },
+  });
 }
 
 export async function startRun(options: {
@@ -70,12 +77,18 @@ export async function loadBrazilStates(): Promise<Array<{ id: string; code: stri
 }
 
 export async function loadWorldCities(query: string, countryCode?: string): Promise<TargetLocation[]> {
-  const response = await requestEngineCatalog("catalog_world_cities", { query, country_code: countryCode });
+  const response = await requestEngineCatalog("catalog_world_cities", {
+    query,
+    country_code: countryCode,
+  });
   return response.cities ?? [];
 }
 
 export async function loadBrazilCities(stateCode: string, search = ""): Promise<TargetLocation[]> {
-  const response = await requestEngineCatalog("catalog_cities", { state_code: stateCode, search });
+  const response = await requestEngineCatalog("catalog_cities", {
+    state_code: stateCode,
+    search,
+  });
   return response.cities ?? [];
 }
 
@@ -103,13 +116,20 @@ async function requestEngineCatalog(
       } else if (event.payload.type === "engine_error") {
         finish(() => reject(new Error(event.payload.error ?? "Falha no catálogo geográfico")));
       }
-    }).then((unlisten) => {
-      stop = unlisten;
-      if (settled) unlisten();
-      void invoke("engine_command", { command, ...payload }).catch((error) => {
-        finish(() => reject(error));
-      });
-    }).catch(reject);
+    })
+      .then((unlisten) => {
+        stop = unlisten;
+        if (settled) unlisten();
+        void invoke("engine_command", {
+          command: {
+            command,
+            ...payload,
+          },
+        }).catch((error) => {
+          finish(() => reject(error));
+        });
+      })
+      .catch(reject);
   });
 }
 
