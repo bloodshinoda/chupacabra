@@ -7,6 +7,7 @@ import threading
 from pathlib import Path
 
 from engine.geography.ibge import IbgeBrazilCatalog
+from engine.geography.world import WorldCityCatalog
 from engine.geography.models import TargetLocation
 from engine.orchestration.runner import ProspectingRunner
 from engine.orchestration.targets import CATEGORIES, build_jobs
@@ -22,6 +23,7 @@ class EngineDaemon:
         self._lock = threading.Lock()
         self._run_thread: threading.Thread | None = None
         self._catalog = IbgeBrazilCatalog()
+        self._world_catalog = WorldCityCatalog()
 
     @staticmethod
     def _emit_payload(payload: dict) -> None:
@@ -88,6 +90,11 @@ class EngineDaemon:
             self._start_run(payload)
         elif command == "catalog_states":
             self._emit_payload({"type": "catalog_states", "states": self._catalog.states()})
+        elif command == "catalog_world_cities":
+            query = str(payload.get("query", ""))
+            country_code = payload.get("country_code")
+            cities = [item.to_dict() for item in self._world_catalog.search_cities(query, str(country_code) if country_code else None)]
+            self._emit_payload({"type": "catalog_world_cities", "cities": cities})
         elif command == "catalog_cities":
             state = str(payload.get("state_code", ""))
             search = str(payload.get("search", ""))
