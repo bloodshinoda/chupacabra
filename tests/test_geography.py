@@ -23,6 +23,13 @@ class GeographyPlannerTests(unittest.TestCase):
         jobs = build_matrix_jobs([location, location], [("agencias", "Agencias")])
         self.assertEqual(len(jobs), 1)
 
+    def test_international_query_uses_country_and_in(self):
+        location = TargetLocation("world:US:1", "US", "CA", "California", "San Francisco")
+        jobs = build_matrix_jobs([location], [("marketing", "Marketing agencies")])
+
+        self.assertEqual(jobs[0][0], "marketing_us_ca_san_francisco")
+        self.assertEqual(jobs[0][3], "Marketing agencies in San Francisco US")
+
 
 if __name__ == "__main__":
     unittest.main()
