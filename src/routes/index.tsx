@@ -38,6 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { cancelRun, engineStatus, isTauriRuntime, listenEngineEvents, pauseRun, resumeRun, startRun, type EngineEvent, type EngineProfile } from "@/lib/engine";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -86,31 +87,127 @@ function ChupacabraDashboard() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [logs, setLogs] = useState(INITIAL_LOGS);
   const [progress, setProgress] = useState(0);
-  const [leadCount, setLeadCount] = useState(2847);
+  const [leadCount, setLeadCount] = useState(0);
+  const [profile, setProfile] = useState<EngineProfile>("balanced");
 
   useEffect(() => {
-    if (scanState !== "running") return;
-    const timer = window.setInterval(() => {
-      setProgress((current) => (current >= 100 ? 3 : Math.min(current + 1.2, 100)));
-      setLeadCount((current) => current + Math.floor(Math.random() * 4));
-      if (Math.random() > 0.55) {
-        const events = [
-          "Lead validado · domínio e telefone encontrados.",
-          "Consultando diretório local · Curitiba/PR.",
-          "Fingerprint rotacionado com sucesso.",
-          "Empresa adicionada à fila de qualificação.",
-        ];
-        const next = events[Math.floor(Math.random() * events.length)];
-        setLogs((current) => [...current.slice(-6), `[${new Date().toLocaleTimeString("pt-BR")}] ${next}`]);
-      }
-    }, 1500);
-    return () => window.clearInterval(timer);
-  }, [scanState]);
+    if (!isTauriRuntime()) return;
 
-  const startScan = () => {
-    setScanState("running");
-    setProgress((current) => (current === 0 ? 7 : current));
-    setLogs((current) => [...current, `[${new Date().toLocaleTimeString("pt-BR")}] Varredura em massa iniciada.`]);
+    let active = true;
+    let unlisten: (() => void) | undefined;
+
+    void Promise.all([
+      engineStatus(),
+      listenEngineEvents((event) => {
+        if (!active) return;
+
+        const stamp = new Date(event.timestamp ?? Date.now()).toLocaleTimeString("pt-BR");
+        const addLog = (message: string) => {
+          setLogs((current) => [...current.slice(-7), `[${stamp}] ${message}`]);
+        };
+
+        switch (event.type) {
+          case "run_started":
+            setScanState("running");
+            setProgress(5);
+            addLog("Execução iniciada pelo engine.");
+            break;
+          case "job_started":
+            setScanState("running");
+            addLog(`Job iniciado · ${event.job?.id ?? "—"}.`);
+            break;
+          case "job_completed":
+            setProgress(100);
+            setLeadCount((current) => current + (event.job?.results_count ?? 0));
+            addLog(`Job concluído · ${event.job?.results_count ?? 0} resultados coletados.`);
+            break;
+          case "job_failed":
+            addLog(`Job falhou · ${event.error ?? event.job?.error ?? "erro desconhecido"}.`);
+            break;
+          case "run_paused":
+            setScanState("paused");
+            addLog("Execução pausada.");
+            break;
+          case "run_resumed":
+            setScanState("running");
+            addLog("Execução retomada.");
+            break;
+          case "run_cancelled":
+            setScanState("idle");
+            addLog("Execução cancelada.");
+            break;
+          case "run_failed":
+            setScanState("idle");
+            addLog(`Execução falhou · ${event.error ?? "consulte o log do engine"}.`);
+            break;
+          case "run_completed":
+            setScanState("idle");
+            setProgress(100);
+            addLog("Execução concluída.");
+            break;
+          case "engine_error":
+            addLog(`Erro do engine · ${event.error ?? "erro desconhecido"}.`);
+            break;
+        }
+      }),
+    ]).then(([, stop]) => {
+      if (active) unlisten = stop;
+      else stop();
+    }).catch((error) => {
+      addEngineLog(setLogs, `Falha ao conectar ao engine · ${error instanceof Error ? error.message : String(error)}`);
+    });
+
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, []);
+
+  const startScan = async () => {
+    setLogs((current) => [...current, `[${new Date().toLocaleTimeString("pt-BR")}] Iniciando varredura com perfil ${profile}.`]);
+    setProgress(5);
+
+    if (!isTauriRuntime()) {
+      setLogs((current) => [...current, `[${new Date().toLocaleTimeString("pt-BR")}] Abra o aplicativo Tauri para executar o engine.`]);
+      return;
+    }
+
+    try {
+      await startRun({
+        query: "Agencias de publicidade em Chapeco SC",
+        profile,
+        city: "Chapeco",
+        category: "agencias_publicidade",
+      });
+      setScanState("running");
+    } catch (error) {
+      setScanState("idle");
+      addEngineLog(setLogs, `Falha ao iniciar engine · ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const handlePause = async () => {
+    try {
+      await pauseRun();
+    } catch (error) {
+      addEngineLog(setLogs, `Falha ao pausar engine · ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const handleResume = async () => {
+    try {
+      await resumeRun();
+    } catch (error) {
+      addEngineLog(setLogs, `Falha ao retomar engine · ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const handleCancel = async () => {
+    try {
+      await cancelRun();
+    } catch (error) {
+      addEngineLog(setLogs, `Falha ao cancelar engine · ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
 
   const currentLabel = NAV_ITEMS.find((item) => item.id === view)?.label ?? "Painel";
@@ -134,7 +231,7 @@ function ChupacabraDashboard() {
         </header>
 
         <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
-          {view === "dashboard" && <DashboardView scanState={scanState} setScanState={setScanState} startScan={startScan} progress={progress} leadCount={leadCount} logs={logs} />}
+          {view === "dashboard" && <DashboardView scanState={scanState} setScanState={setScanState} startScan={startScan} onPause={handlePause} onResume={handleResume} onCancel={handleCancel} profile={profile} setProfile={setProfile} progress={progress} leadCount={leadCount} logs={logs} />}
           {view === "targets" && <TargetsView />}
           {view === "leads" && <LeadsView />}
           {view === "outreach" && <OutreachView />}
@@ -143,6 +240,11 @@ function ChupacabraDashboard() {
       </main>
     </div>
   );
+}
+
+
+function addEngineLog(setLogs: React.Dispatch<React.SetStateAction<string[]>>, message: string) {
+  setLogs((current) => [...current.slice(-7), `[${new Date().toLocaleTimeString("pt-BR")}] ${message}`]);
 }
 
 function Sidebar({ view, setView, open, setOpen, scanState }: { view: View; setView: (v: View) => void; open: boolean; setOpen: (v: boolean) => void; scanState: ScanState }) {
@@ -172,7 +274,7 @@ function PageIntro({ eyebrow, title, description, action }: { eyebrow: string; t
   return <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4"><div className="min-w-0"><p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-primary">{eyebrow}</p><h2 className="font-display text-2xl font-bold tracking-wide sm:text-3xl">{title}</h2><p className="mt-2 max-w-2xl text-sm text-muted-foreground">{description}</p></div>{action && <div className="shrink-0">{action}</div>}</div>;
 }
 
-function DashboardView({ scanState, setScanState, startScan, progress, leadCount, logs }: { scanState: ScanState; setScanState: (s: ScanState) => void; startScan: () => void; progress: number; leadCount: number; logs: string[] }) {
+function DashboardView({ scanState, setScanState, startScan, onPause, onResume, onCancel, profile, setProfile, progress, leadCount, logs }: { scanState: ScanState; setScanState: (s: ScanState) => void; startScan: () => void; onPause: () => void; onResume: () => void; onCancel: () => void; profile: EngineProfile; setProfile: (p: EngineProfile) => void; progress: number; leadCount: number; logs: string[] }) {
   const metrics = [
     { label: "Leads coletados", value: leadCount.toLocaleString("pt-BR"), delta: "+12.4%", icon: Users },
     { label: "Cidades configuradas", value: "12", delta: "4 estados", icon: MapPin },
@@ -185,10 +287,10 @@ function DashboardView({ scanState, setScanState, startScan, progress, leadCount
 
     <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
       <div className="panel overflow-hidden">
-        <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-display text-lg font-semibold">Operação de varredura</p><p className="mt-1 text-xs text-muted-foreground">Busca paralela em 12 cidades × 8 nichos</p></div><div className="flex gap-2">{scanState === "running" && <Button variant="outline" onClick={() => setScanState("paused")}><Pause /> Pausar</Button>}{scanState === "paused" && <Button variant="outline" onClick={() => setScanState("running")}><Play /> Retomar</Button>}<Button size="lg" onClick={startScan} className="scan-button"><Zap />{scanState === "running" ? "Reiniciar varredura" : "Iniciar varredura em massa"}</Button></div></div>
+        <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-display text-lg font-semibold">Operação de varredura</p><p className="mt-1 text-xs text-muted-foreground">Execução real via engine · alvo atual: Chapeco / Agências de publicidade</p></div><div className="flex flex-wrap gap-2"><div className="flex items-center border border-border bg-surface p-1">{(["fast","balanced","aggressive"] as EngineProfile[]).map((item)=><button key={item} onClick={()=>setProfile(item)} className={cn("px-2.5 py-1.5 font-mono text-[9px] uppercase transition-colors", profile===item ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground")}>{item}</button>)}</div>{scanState === "running" && <><Button variant="outline" onClick={onPause}><Pause /> Pausar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}{scanState === "paused" && <><Button variant="outline" onClick={onResume}><Play /> Retomar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}<Button size="lg" onClick={startScan} className="scan-button"><Zap />{scanState === "running" ? "Nova varredura" : "Iniciar varredura"}</Button></div></div>
         <div className="grid gap-6 p-5 md:grid-cols-[minmax(0,1fr)_220px]">
           <div><div className="mb-2 flex justify-between text-xs"><span className="text-muted-foreground">Progresso do ciclo</span><span className="font-mono text-primary">{Math.round(progress)}%</span></div><div className="h-2 overflow-hidden bg-muted"><div className="h-full bg-primary transition-all duration-700 shadow-glow" style={{ width: `${progress}%` }} /></div><div className="mt-5 grid grid-cols-3 gap-3">{[["Consultas", "1.248"], ["Válidos", "386"], ["Taxa", "30,9%"]].map(([a,b]) => <div key={a} className="border-l border-border pl-3"><p className="font-mono text-[9px] uppercase text-muted-foreground">{a}</p><p className="mt-1 text-sm font-semibold">{b}</p></div>)}</div></div>
-          <div className="border border-border bg-surface p-4"><div className="flex items-center gap-2 text-xs font-medium"><Clock3 className="size-4 text-info" /> Timer estocástico</div><p className="mt-3 font-mono text-2xl font-bold">04.8<span className="text-xs text-muted-foreground">s</span></p><p className="mt-1 text-[10px] text-muted-foreground">Próxima requisição aleatória</p></div>
+          <div className="border border-border bg-surface p-4"><div className="flex items-center gap-2 text-xs font-medium"><Clock3 className="size-4 text-info" /> Timer estocástico</div><p className="mt-3 font-mono text-2xl font-bold">04.8<span className="text-xs text-muted-foreground">s</span></p><p className="mt-1 text-[10px] text-muted-foreground">Perfil {profile} · cadência controlada pelo engine</p></div>
         </div>
       </div>
       <div className="panel p-5"><div className="flex items-center justify-between"><div><p className="font-display font-semibold">Saúde do sistema</p><p className="mt-1 text-xs text-muted-foreground">Últimos 15 minutos</p></div><ShieldCheck className="size-5 text-primary" /></div><div className="mt-6 space-y-5">{[["Disponibilidade", 99], ["Qualidade dos proxies", 87], ["Integridade dos dados", 94]].map(([label, val]) => <div key={String(label)}><div className="mb-2 flex justify-between text-xs"><span className="text-muted-foreground">{label}</span><span className="font-mono">{val}%</span></div><div className="h-1 bg-muted"><div className="h-full bg-info" style={{ width: `${val}%` }} /></div></div>)}</div></div>
