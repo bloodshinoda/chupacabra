@@ -1,10 +1,10 @@
 """Brazilian geographic catalog backed by official IBGE APIs."""
 from __future__ import annotations
 
+import gzip
 import json
 import time
 from pathlib import Path
-from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from engine.geography.models import TargetLocation
@@ -101,7 +101,7 @@ class IbgeBrazilCatalog:
             headers={"Accept": "application/json", "User-Agent": "Chupacabra-System/0.1"},
         )
         with urlopen(request, timeout=30) as response:
-            payload = json.loads(response.read().decode("utf-8"))
+            payload = _read_json_response(response.read())
 
         populations: dict[str, int] = {}
         for row in payload[1:]:
@@ -126,6 +126,14 @@ class IbgeBrazilCatalog:
         path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         return payload
 
+
+
+def _read_json_response(raw: bytes):
+    # Alguns endpoints do IBGE entregam gzip mesmo quando o cliente não
+    # solicita explicitamente compressão. 0x1f 0x8b é a assinatura do gzip.
+    if raw[:2] == b"\x1f\x8b":
+        raw = gzip.decompress(raw)
+    return json.loads(raw.decode("utf-8"))
 
 def _normalize(value: str) -> str:
     import unicodedata
