@@ -38,7 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { cancelRun, engineStatus, isTauriRuntime, listenEngineEvents, loadBrazilCities, pauseRun, resumeRun, startRun, type EngineProfile, type TargetLocation } from "@/lib/engine";
+import { cancelRun, engineStatus, isTauriRuntime, listenEngineEvents, loadBrazilCities, loadBrazilStates, pauseRun, resumeRun, startRun, type EngineProfile, type TargetLocation } from "@/lib/engine";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -301,6 +301,7 @@ function DashboardView({ scanState, setScanState, startScan, onPause, onResume, 
 
 function TargetsView({ targets, setTargets, categories }: { targets: TargetLocation[]; setTargets: (targets: TargetLocation[]) => void; categories: Array<[string, string]> }) {
   const [stateCode, setStateCode] = useState("SC");
+  const [states, setStates] = useState<Array<{ id: string; code: string; name: string }>>([]);
   const [cities, setCities] = useState<TargetLocation[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
@@ -312,6 +313,7 @@ function TargetsView({ targets, setTargets, categories }: { targets: TargetLocat
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setLoading(false); }
   };
+  useEffect(() => { void loadBrazilStates().then(setStates).catch((cause) => setError(cause instanceof Error ? cause.message : String(cause))); }, []);
   useEffect(() => { void refreshCities(); }, [stateCode]);
   const toggleCity = (city: TargetLocation) => {
     const exists = targets.some((item) => item.id === city.id);
@@ -321,7 +323,7 @@ function TargetsView({ targets, setTargets, categories }: { targets: TargetLocat
     <PageIntro eyebrow="Definição de território" title="Matriz de Alvos" description="Selecione municípios reais do catálogo do IBGE e combine-os com os segmentos ativos do engine." action={<span className="hidden border border-primary/20 bg-primary/5 px-3 py-2 font-mono text-xs text-primary sm:block">{targets.length * categories.length} combinações</span>} />
     <section className="panel p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
-        <label className="block lg:w-40"><span className="field-label">UF</span><select className="field mt-2" value={stateCode} onChange={(e)=>setStateCode(e.target.value)}><option>SC</option><option>PR</option><option>RS</option><option>SP</option><option>RJ</option><option>MG</option><option>BA</option><option>GO</option><option>PE</option><option>CE</option></select></label>
+        <label className="block lg:w-40"><span className="field-label">UF</span><select className="field mt-2" value={stateCode} onChange={(e)=>setStateCode(e.target.value)}>{states.length ? states.map((state)=><option key={state.code} value={state.code}>{state.code} — {state.name}</option>) : <option>SC</option>}</select></label>
         <label className="block flex-1"><span className="field-label">Buscar município</span><input className="field mt-2" value={search} onChange={(e)=>setSearch(e.target.value)} onKeyDown={(e)=>e.key==="Enter"&&void refreshCities()} placeholder="Ex: Chapecó" /></label>
         <Button onClick={()=>void refreshCities()} disabled={loading}>{loading ? "Carregando..." : "Atualizar municípios"}</Button>
       </div>
