@@ -38,7 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { cancelRun, engineStatus, isTauriRuntime, listenEngineEvents, pauseRun, resumeRun, startRun, type EngineEvent, type EngineProfile } from "@/lib/engine";
+import { cancelRun, engineStatus, isTauriRuntime, listenEngineEvents, loadBrazilCities, pauseRun, resumeRun, startRun, type EngineProfile, type TargetLocation } from "@/lib/engine";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -89,6 +89,8 @@ function ChupacabraDashboard() {
   const [progress, setProgress] = useState(0);
   const [leadCount, setLeadCount] = useState(0);
   const [profile, setProfile] = useState<EngineProfile>("balanced");
+  const [targets, setTargets] = useState<TargetLocation[]>([]);
+  const [categories] = useState<Array<[string, string]>>([["agencias_publicidade", "Agencias de publicidade"], ["graficas", "Graficas"], ["graficas_rapidas", "Grafica rapida"], ["comunicacao_visual", "Comunicacao visual"], ["marketing_digital", "Agencias de marketing digital"], ["brindes_corporativos", "Brindes corporativos"], ["eventos_corporativos", "Organizacao de eventos corporativos"], ["serigrafia_estamparia", "Serigrafia e estamparia"], ["imobiliarias", "Imobiliarias"], ["concessionarias", "Concessionarias de veiculos"], ["construtoras", "Construtoras"], ["clinicas_odontologicas", "Clinicas odontologicas"]]);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -110,6 +112,7 @@ function ChupacabraDashboard() {
           case "run_started":
             setScanState("running");
             setProgress(5);
+            setLeadCount(0);
             addLog("Execução iniciada pelo engine.");
             break;
           case "job_started":
@@ -117,7 +120,7 @@ function ChupacabraDashboard() {
             addLog(`Job iniciado · ${event.job?.id ?? "—"}.`);
             break;
           case "job_completed":
-            setProgress(100);
+            setProgress(event.run?.total_jobs ? (event.run.completed_jobs / event.run.total_jobs) * 100 : 100);
             setLeadCount((current) => current + (event.job?.results_count ?? 0));
             addLog(`Job concluído · ${event.job?.results_count ?? 0} resultados coletados.`);
             break;
@@ -173,12 +176,8 @@ function ChupacabraDashboard() {
     }
 
     try {
-      await startRun({
-        query: "Agencias de publicidade em Chapeco SC",
-        profile,
-        city: "Chapeco",
-        category: "agencias_publicidade",
-      });
+      if (!targets.length) throw new Error("Selecione ao menos uma cidade na Matriz de Alvos.");
+      await startRun({ profile, targets, categories });
       setScanState("running");
     } catch (error) {
       setScanState("idle");
@@ -232,7 +231,7 @@ function ChupacabraDashboard() {
 
         <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
           {view === "dashboard" && <DashboardView scanState={scanState} setScanState={setScanState} startScan={startScan} onPause={handlePause} onResume={handleResume} onCancel={handleCancel} profile={profile} setProfile={setProfile} progress={progress} leadCount={leadCount} logs={logs} />}
-          {view === "targets" && <TargetsView />}
+          {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} />}
           {view === "leads" && <LeadsView />}
           {view === "outreach" && <OutreachView />}
           {view === "reports" && <ReportsView />}
@@ -300,14 +299,41 @@ function DashboardView({ scanState, setScanState, startScan, onPause, onResume, 
   </>;
 }
 
-function TargetsView() {
-  const [cities, setCities] = useState(["São Paulo, SP", "Curitiba, PR", "Belo Horizonte, MG", "Campinas, SP"]);
-  const [niches, setNiches] = useState(["Software B2B", "Contabilidade", "Clínicas", "Engenharia"]);
-  const [city, setCity] = useState(""); const [niche, setNiche] = useState(""); const [delay, setDelay] = useState([5]); const [limit, setLimit] = useState([120]);
-  const add = (value: string, list: string[], setter: (v: string[]) => void, clear: (v: string) => void) => { if (value.trim() && !list.includes(value.trim())) setter([...list, value.trim()]); clear(""); };
-  return <><PageIntro eyebrow="Definição de território" title="Matriz de Alvos" description="Combine cidades e segmentos para direcionar o motor de descoberta." action={<span className="hidden border border-primary/20 bg-primary/5 px-3 py-2 font-mono text-xs text-primary sm:block">{cities.length * niches.length} combinações</span>} />
-    <div className="grid gap-4 xl:grid-cols-2"><TagManager title="Cidades alvo" icon={MapPin} items={cities} input={city} setInput={setCity} onAdd={() => add(city,cities,setCities,setCity)} onRemove={(v) => setCities(cities.filter(x=>x!==v))} placeholder="Ex: Florianópolis, SC" /><TagManager title="Nichos e segmentos" icon={Building2} items={niches} input={niche} setInput={setNiche} onAdd={() => add(niche,niches,setNiches,setNiche)} onRemove={(v) => setNiches(niches.filter(x=>x!==v))} placeholder="Ex: Energia solar" /></div>
-    <section className="panel mt-4 p-5"><div className="flex items-center gap-3"><div className="grid size-9 place-items-center bg-info/10 text-info"><ShieldCheck className="size-4"/></div><div><h3 className="font-display font-semibold">Parâmetros de segurança</h3><p className="text-xs text-muted-foreground">Controle de cadência e proteção contra bloqueios</p></div></div><div className="mt-7 grid gap-8 md:grid-cols-2"><RangeSetting label="Intervalo médio entre requisições" value={`${delay[0]} segundos`} min={2} max={15} values={delay} onChange={setDelay}/><RangeSetting label="Limite por sessão" value={`${limit[0]} requisições`} min={40} max={300} values={limit} onChange={setLimit}/></div><div className="mt-7 grid gap-3 sm:grid-cols-3">{["Rotação automática de proxy","Variação de fingerprint","Pausa por detecção de risco"].map((x)=><label key={x} className="flex items-center justify-between border border-border bg-surface px-4 py-3 text-xs"><span>{x}</span><Switch defaultChecked /></label>)}</div></section>
+function TargetsView({ targets, setTargets, categories }: { targets: TargetLocation[]; setTargets: (targets: TargetLocation[]) => void; categories: Array<[string, string]> }) {
+  const [stateCode, setStateCode] = useState("SC");
+  const [cities, setCities] = useState<TargetLocation[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const refreshCities = async () => {
+    if (!isTauriRuntime()) { setError("Abra o aplicativo Tauri para carregar o catálogo oficial do IBGE."); return; }
+    setLoading(true); setError("");
+    try { setCities(await loadBrazilCities(stateCode, search)); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { void refreshCities(); }, [stateCode]);
+  const toggleCity = (city: TargetLocation) => {
+    const exists = targets.some((item) => item.id === city.id);
+    setTargets(exists ? targets.filter((item) => item.id !== city.id) : [...targets, city]);
+  };
+  return <>
+    <PageIntro eyebrow="Definição de território" title="Matriz de Alvos" description="Selecione municípios reais do catálogo do IBGE e combine-os com os segmentos ativos do engine." action={<span className="hidden border border-primary/20 bg-primary/5 px-3 py-2 font-mono text-xs text-primary sm:block">{targets.length * categories.length} combinações</span>} />
+    <section className="panel p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+        <label className="block lg:w-40"><span className="field-label">UF</span><select className="field mt-2" value={stateCode} onChange={(e)=>setStateCode(e.target.value)}><option>SC</option><option>PR</option><option>RS</option><option>SP</option><option>RJ</option><option>MG</option><option>BA</option><option>GO</option><option>PE</option><option>CE</option></select></label>
+        <label className="block flex-1"><span className="field-label">Buscar município</span><input className="field mt-2" value={search} onChange={(e)=>setSearch(e.target.value)} onKeyDown={(e)=>e.key==="Enter"&&void refreshCities()} placeholder="Ex: Chapecó" /></label>
+        <Button onClick={()=>void refreshCities()} disabled={loading}>{loading ? "Carregando..." : "Atualizar municípios"}</Button>
+      </div>
+      {error && <p className="mt-4 border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{error}</p>}
+      <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {cities.slice(0, 60).map((city) => <button key={city.id} onClick={()=>toggleCity(city)} className={cn("border p-3 text-left transition-colors", targets.some((item)=>item.id===city.id) ? "border-primary bg-primary/10" : "border-border bg-surface hover:border-primary/40")}><div className="flex items-center justify-between gap-3"><span className="text-sm font-medium">{city.city}</span>{targets.some((item)=>item.id===city.id)&&<Check className="size-4 text-primary"/>}</div><span className="mt-1 block font-mono text-[9px] uppercase text-muted-foreground">{city.state_code} · IBGE {city.id.replace("br:","")}</span></button>)}
+      </div>
+    </section>
+    <section className="panel mt-4 p-5">
+      <div className="flex items-center justify-between"><div><h3 className="font-display font-semibold">Cidades selecionadas</h3><p className="mt-1 text-xs text-muted-foreground">{targets.length} municípios · {targets.length * categories.length} jobs previstos</p></div><Button variant="outline" onClick={()=>setTargets([])} disabled={!targets.length}>Limpar</Button></div>
+      <div className="mt-4 flex flex-wrap gap-2">{targets.map((target)=><span key={target.id} className="border border-primary/20 bg-primary/5 px-3 py-2 text-xs">{target.city} / {target.state_code}</span>)}</div>
+    </section>
   </>;
 }
 
