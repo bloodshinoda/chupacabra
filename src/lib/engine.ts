@@ -3,9 +3,21 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 export type EngineProfile = "fast" | "balanced" | "aggressive";
 
+export type TargetLocation = {
+  id: string;
+  country: string;
+  state_code: string;
+  state_name: string;
+  city: string;
+  latitude?: number | null;
+  longitude?: number | null;
+};
+
 export type EngineEvent = {
   type: string;
   timestamp?: string;
+  states?: Array<{ id: string; code: string; name: string }>;
+  cities?: TargetLocation[];
   run?: {
     id: string;
     profile: EngineProfile;
@@ -41,12 +53,58 @@ export async function sendEngineCommand(
 }
 
 export async function startRun(options: {
-  query: string;
+  query?: string;
   profile: EngineProfile;
   city?: string;
   category?: string;
+  targets?: TargetLocation[];
+  categories?: Array<[string, string]>;
 }): Promise<void> {
   await sendEngineCommand("start_run", options);
+}
+
+export async function loadBrazilStates(): Promise<Array<{ id: string; code: string; name: string }>> {
+  const response = await requestEngineCatalog("catalog_states");
+  return response.states ?? [];
+}
+
+export async function loadBrazilCities(stateCode: string, search = ""): Promise<TargetLocation[]> {
+  const response = await requestEngineCatalog("catalog_cities", { state_code: stateCode, search });
+  return response.cities ?? [];
+}
+
+async function requestEngineCatalog(
+  command: string,
+  payload: Record<string, unknown> = {},
+): Promise<EngineEvent> {
+  if (!isTauriRuntime()) {
+    throw new Error("O catálogo geográfico está disponível apenas no aplicativo desktop Tauri.");
+  }
+
+  return new Promise((resolve, reject) => {
+    let stop: UnlistenFn | undefined;
+    let settled = false;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      stop?.();
+      callback();
+    };
+
+    void listen<EngineEvent>("engine-event", (event) => {
+      if (event.payload.type === command) {
+        finish(() => resolve(event.payload));
+      } else if (event.payload.type === "engine_error") {
+        finish(() => reject(new Error(event.payload.error ?? "Falha no catálogo geográfico")));
+      }
+    }).then((unlisten) => {
+      stop = unlisten;
+      if (settled) unlisten();
+      void invoke("engine_command", { command, ...payload }).catch((error) => {
+        finish(() => reject(error));
+      });
+    }).catch(reject);
+  });
 }
 
 export function listenEngineEvents(handler: (event: EngineEvent) => void): Promise<UnlistenFn> {
