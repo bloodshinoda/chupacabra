@@ -12,12 +12,21 @@ def build_matrix_jobs(
     seen: set[str] = set()
     for location in locations:
         for category_slug, label in categories:
-            job_slug = f"{category_slug}_{_slug(location.city)}_{location.state_code.lower()}"
+            job_slug = (
+                f"{category_slug}_{_slug(location.country)}_"
+                f"{_slug(location.state_code or location.state_name)}_{_slug(location.city)}"
+            )
             if job_slug in seen:
                 continue
             seen.add(job_slug)
-            suffix = f"{location.city} {location.state_code}" if location.country == "BR" else f"{location.city} {location.country}"
-            query = f"{label} em {suffix}"
+
+            if location.country == "BR":
+                suffix = f"{location.city} {location.state_code}"
+                query = f"{label} em {suffix}"
+            else:
+                suffix = f"{location.city} {location.country}"
+                query = f"{label} in {suffix}"
+
             jobs.append((job_slug, location.city, category_slug, query))
     return jobs
 
