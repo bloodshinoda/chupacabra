@@ -38,7 +38,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { cancelRun, engineStatus, isTauriRuntime, listenEngineEvents, loadBrazilCities, loadBrazilStates, pauseRun, resumeRun, startRun, type EngineProfile, type TargetLocation } from "@/lib/engine";
+import { cancelRun, engineStatus, isTauriRuntime, listenEngineEvents, loadBrazilCities, loadBrazilStates, loadWorldCities, pauseRun, resumeRun, startRun, type EngineProfile, type TargetLocation } from "@/lib/engine";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -300,41 +300,69 @@ function DashboardView({ scanState, setScanState, startScan, onPause, onResume, 
 }
 
 function TargetsView({ targets, setTargets, categories }: { targets: TargetLocation[]; setTargets: (targets: TargetLocation[]) => void; categories: Array<[string, string]> }) {
+  const [mode, setMode] = useState<"br" | "world">("br");
   const [stateCode, setStateCode] = useState("SC");
   const [states, setStates] = useState<Array<{ id: string; code: string; name: string }>>([]);
   const [cities, setCities] = useState<TargetLocation[]>([]);
+  const [worldCities, setWorldCities] = useState<TargetLocation[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const refreshCities = async () => {
-    if (!isTauriRuntime()) { setError("Abra o aplicativo Tauri para carregar o catálogo oficial do IBGE."); return; }
+
+  const refreshBrazil = async () => {
+    if (!isTauriRuntime()) { setError("Abra o aplicativo Tauri para carregar o catálogo geográfico."); return; }
     setLoading(true); setError("");
     try { setCities(await loadBrazilCities(stateCode, search)); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setLoading(false); }
   };
-  useEffect(() => { void loadBrazilStates().then(setStates).catch((cause) => setError(cause instanceof Error ? cause.message : String(cause))); }, []);
-  useEffect(() => { void refreshCities(); }, [stateCode]);
+
+  const refreshWorld = async () => {
+    if (!isTauriRuntime()) { setError("Abra o aplicativo Tauri para pesquisar cidades internacionais."); return; }
+    if (search.trim().length < 2) return;
+    setLoading(true); setError("");
+    try { setWorldCities(await loadWorldCities(search)); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => {
+    if (mode === "br") void loadBrazilStates().then(setStates).catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)));
+  }, [mode]);
+
+  useEffect(() => { if (mode === "br") void refreshBrazil(); }, [stateCode, mode]);
+
+  const results = mode === "br" ? cities : worldCities;
   const toggleCity = (city: TargetLocation) => {
     const exists = targets.some((item) => item.id === city.id);
     setTargets(exists ? targets.filter((item) => item.id !== city.id) : [...targets, city]);
   };
+
   return <>
-    <PageIntro eyebrow="Definição de território" title="Matriz de Alvos" description="Selecione municípios reais do catálogo do IBGE e combine-os com os segmentos ativos do engine." action={<span className="hidden border border-primary/20 bg-primary/5 px-3 py-2 font-mono text-xs text-primary sm:block">{targets.length * categories.length} combinações</span>} />
+    <div className="mb-4 flex gap-2">
+      <Button variant={mode === "br" ? "default" : "outline"} onClick={() => setMode("br")}>Brasil · IBGE</Button>
+      <Button variant={mode === "world" ? "default" : "outline"} onClick={() => setMode("world")}>Internacional</Button>
+    </div>
+    <PageIntro eyebrow="Definição de território" title="Matriz de Alvos" description="Combine cidades reais com os segmentos do engine." action={<span className="hidden border border-primary/20 bg-primary/5 px-3 py-2 font-mono text-xs text-primary sm:block">{targets.length * categories.length} combinações</span>} />
     <section className="panel p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
-        <label className="block lg:w-40"><span className="field-label">UF</span><select className="field mt-2" value={stateCode} onChange={(e)=>setStateCode(e.target.value)}>{states.length ? states.map((state)=><option key={state.code} value={state.code}>{state.code} — {state.name}</option>) : <option>SC</option>}</select></label>
-        <label className="block flex-1"><span className="field-label">Buscar município</span><input className="field mt-2" value={search} onChange={(e)=>setSearch(e.target.value)} onKeyDown={(e)=>e.key==="Enter"&&void refreshCities()} placeholder="Ex: Chapecó" /></label>
-        <Button onClick={()=>void refreshCities()} disabled={loading}>{loading ? "Carregando..." : "Atualizar municípios"}</Button>
+        {mode === "br" ? <>
+          <label className="block lg:w-56"><span className="field-label">UF</span><select className="field mt-2" value={stateCode} onChange={(e)=>setStateCode(e.target.value)}>{states.length ? states.map((state)=><option key={state.code} value={state.code}>{state.code} — {state.name}</option>) : <option>SC</option>}</select></label>
+          <label className="block flex-1"><span className="field-label">Buscar município</span><input className="field mt-2" value={search} onChange={(e)=>setSearch(e.target.value)} onKeyDown={(e)=>e.key==="Enter"&&void refreshBrazil()} placeholder="Ex: Chapecó" /></label>
+          <Button onClick={()=>void refreshBrazil()} disabled={loading}>{loading ? "Carregando..." : "Atualizar municípios"}</Button>
+        </> : <>
+          <label className="block flex-1"><span className="field-label">Buscar cidade no mundo</span><input className="field mt-2" value={search} onChange={(e)=>setSearch(e.target.value)} onKeyDown={(e)=>e.key==="Enter"&&void refreshWorld()} placeholder="Ex: Berlin, Miami, Tokyo" /></label>
+          <Button onClick={()=>void refreshWorld()} disabled={loading}>{loading ? "Buscando..." : "Buscar cidades"}</Button>
+        </>}
       </div>
       {error && <p className="mt-4 border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{error}</p>}
       <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {cities.slice(0, 60).map((city) => <button key={city.id} onClick={()=>toggleCity(city)} className={cn("border p-3 text-left transition-colors", targets.some((item)=>item.id===city.id) ? "border-primary bg-primary/10" : "border-border bg-surface hover:border-primary/40")}><div className="flex items-center justify-between gap-3"><span className="text-sm font-medium">{city.city}</span>{targets.some((item)=>item.id===city.id)&&<Check className="size-4 text-primary"/>}</div><span className="mt-1 block font-mono text-[9px] uppercase text-muted-foreground">{city.state_code} · IBGE {city.id.replace("br:","")}</span></button>)}
+        {results.slice(0, 60).map((city) => <button key={city.id} onClick={()=>toggleCity(city)} className={cn("border p-3 text-left transition-colors", targets.some((item)=>item.id===city.id) ? "border-primary bg-primary/10" : "border-border bg-surface hover:border-primary/40")}><div className="flex items-center justify-between gap-3"><span className="text-sm font-medium">{city.city}</span>{targets.some((item)=>item.id===city.id)&&<Check className="size-4 text-primary"/>}</div><span className="mt-1 block font-mono text-[9px] uppercase text-muted-foreground">{city.state_code || city.country} · {city.state_name || "Internacional"}</span></button>)}
       </div>
     </section>
     <section className="panel mt-4 p-5">
-      <div className="flex items-center justify-between"><div><h3 className="font-display font-semibold">Cidades selecionadas</h3><p className="mt-1 text-xs text-muted-foreground">{targets.length} municípios · {targets.length * categories.length} jobs previstos</p></div><Button variant="outline" onClick={()=>setTargets([])} disabled={!targets.length}>Limpar</Button></div>
-      <div className="mt-4 flex flex-wrap gap-2">{targets.map((target)=><span key={target.id} className="border border-primary/20 bg-primary/5 px-3 py-2 text-xs">{target.city} / {target.state_code}</span>)}</div>
+      <div className="flex items-center justify-between"><div><h3 className="font-display font-semibold">Cidades selecionadas</h3><p className="mt-1 text-xs text-muted-foreground">{targets.length} localidades · {targets.length * categories.length} jobs previstos</p></div><Button variant="outline" onClick={()=>setTargets([])} disabled={!targets.length}>Limpar</Button></div>
+      <div className="mt-4 flex flex-wrap gap-2">{targets.map((target)=><span key={target.id} className="border border-primary/20 bg-primary/5 px-3 py-2 text-xs">{target.city} / {target.state_code || target.country}</span>)}</div>
     </section>
   </>;
 }
