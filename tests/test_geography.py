@@ -1,10 +1,18 @@
+import gzip
+import json
 import unittest
+
+from engine.geography.ibge import _read_json_response
 
 from engine.geography.models import TargetLocation
 from engine.geography.planner import build_matrix_jobs
 
 
 class GeographyPlannerTests(unittest.TestCase):
+    def test_reads_gzip_json_response(self):
+        payload = json.dumps([{"id": 1}], ensure_ascii=False).encode("utf-8")
+        self.assertEqual(_read_json_response(gzip.compress(payload)), [{"id": 1}])
+
     def test_builds_city_category_matrix(self):
         locations = [
             TargetLocation("br:1", "BR", "SC", "Santa Catarina", "Chapeco"),
