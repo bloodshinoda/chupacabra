@@ -110,7 +110,15 @@ class EngineDaemon:
         elif command == "catalog_cities":
             state = str(payload.get("state_code", ""))
             search = str(payload.get("search", ""))
-            cities = [item.to_dict() for item in self._catalog.cities(state, search)]
+            include_population = bool(payload.get("include_population", False))
+            cities = [
+                item.to_dict()
+                for item in self._catalog.cities(
+                    state,
+                    search,
+                    include_population=include_population,
+                )
+            ]
             self._emit_payload({"type": "catalog_cities", "state_code": state.upper(), "cities": cities})
         elif command == "pause_run":
             self.runner.pause()
