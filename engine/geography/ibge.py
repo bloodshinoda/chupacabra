@@ -98,7 +98,7 @@ class IbgeBrazilCatalog:
 
         request = Request(
             SIDRA_URL,
-            headers={"Accept": "application/json", "User-Agent": "Chupacabra-System/0.1"},
+            headers={"Accept": "application/json", "Accept-Encoding": "identity", "User-Agent": "Chupacabra-System/0.1"},
         )
         with urlopen(request, timeout=30) as response:
             payload = _read_json_response(response.read())
