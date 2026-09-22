@@ -122,7 +122,7 @@ class IbgeBrazilCatalog:
             headers={"Accept": "application/json", "Accept-Encoding": "identity", "User-Agent": "Chupacabra-System/0.1"},
         )
         with urlopen(request, timeout=20) as response:
-            payload = json.loads(response.read().decode("utf-8"))
+            payload = _read_json_response(response.read())
         path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         return payload
 
