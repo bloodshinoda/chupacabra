@@ -84,10 +84,15 @@ export async function loadWorldCities(query: string, countryCode?: string): Prom
   return response.cities ?? [];
 }
 
-export async function loadBrazilCities(stateCode: string, search = ""): Promise<TargetLocation[]> {
+export async function loadBrazilCities(
+  stateCode: string,
+  search = "",
+  includePopulation = false,
+): Promise<TargetLocation[]> {
   const response = await requestEngineCatalog("catalog_cities", {
     state_code: stateCode,
     search,
+    include_population: includePopulation,
   });
   return response.cities ?? [];
 }
