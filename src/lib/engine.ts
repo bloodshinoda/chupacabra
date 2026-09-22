@@ -106,12 +106,63 @@ export async function loadBrazilCities(
   search = "",
   includePopulation = false,
 ): Promise<TargetLocation[]> {
-  const response = await requestEngineCatalog("catalog_cities", {
-    state_code: stateCode,
-    search,
-    include_population: includePopulation,
-  });
-  return response.cities ?? [];
+  const state = BRAZIL_STATES.find((item) => item[1] === stateCode.toUpperCase());
+  if (!state) throw new Error(`UF brasileira inválida: ${stateCode}`);
+
+  const response = await fetchWithTimeout(
+    `${IBGE_LOCALIDADES}/estados/${state[0]}/municipios`,
+    15000,
+  );
+  if (!response.ok) throw new Error(`IBGE respondeu HTTP ${response.status} ao carregar municípios.`);
+  const payload = await response.json() as Array<{ id: number; nome: string }>;
+
+  let populations = new Map<string, number>();
+  if (includePopulation) {
+    const populationResponse = await fetchWithTimeout(IBGE_POPULATION, 30000);
+    if (!populationResponse.ok) {
+      throw new Error(`IBGE/SIDRA respondeu HTTP ${populationResponse.status} ao carregar população.`);
+    }
+    const populationPayload = await populationResponse.json() as Array<Record<string, string>>;
+    populations = new Map(
+      populationPayload.slice(1).flatMap((row) => {
+        const code = String(row.D1C ?? "").trim();
+        const value = String(row.V ?? "").replace(/\\./g, "");
+        return code && /^\\d+$/.test(value) ? [[code, Number(value)] as const] : [];
+      }),
+    );
+  }
+
+  const needle = search.trim().toLocaleLowerCase("pt-BR");
+  return payload
+    .filter((city) => !needle || city.nome.toLocaleLowerCase("pt-BR").includes(needle))
+    .map((city) => ({
+      id: `br:${city.id}`,
+      country: "BR",
+      state_code: state[1],
+      state_name: state[2],
+      city: city.nome,
+      population_2022: populations.get(String(city.id)) ?? null,
+      is_capital: false,
+    }))
+    .sort((a, b) => a.city.localeCompare(b.city, "pt-BR"));
+}
+
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(`Tempo esgotado ao consultar o catálogo geográfico (${timeoutMs / 1000}s).`);
+    }
+    throw new Error(`Falha ao consultar o catálogo geográfico: ${error instanceof Error ? error.message : String(error)}`);
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 async function requestEngineCatalog(
