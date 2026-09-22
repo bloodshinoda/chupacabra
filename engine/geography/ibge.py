@@ -30,6 +30,23 @@ STATE_CATALOG = (
 )
 STATE_BY_CODE = {code: {"id": id_, "code": code, "name": name} for id_, code, name in STATE_CATALOG}
 
+# Catálogo estrutural estático: UFs não precisam depender de uma chamada de
+# rede para preencher o primeiro combo da interface. Os códigos são os IDs
+# oficiais usados pelo endpoint de municípios do IBGE.
+STATE_CATALOG = (
+    ("12", "AC", "Acre"), ("27", "AL", "Alagoas"), ("16", "AP", "Amapá"),
+    ("13", "AM", "Amazonas"), ("29", "BA", "Bahia"), ("23", "CE", "Ceará"),
+    ("53", "DF", "Distrito Federal"), ("32", "ES", "Espírito Santo"),
+    ("52", "GO", "Goiás"), ("21", "MA", "Maranhão"), ("51", "MT", "Mato Grosso"),
+    ("50", "MS", "Mato Grosso do Sul"), ("31", "MG", "Minas Gerais"),
+    ("15", "PA", "Pará"), ("25", "PB", "Paraíba"), ("41", "PR", "Paraná"),
+    ("26", "PE", "Pernambuco"), ("22", "PI", "Piauí"), ("33", "RJ", "Rio de Janeiro"),
+    ("24", "RN", "Rio Grande do Norte"), ("43", "RS", "Rio Grande do Sul"),
+    ("11", "RO", "Rondônia"), ("14", "RR", "Roraima"), ("42", "SC", "Santa Catarina"),
+    ("35", "SP", "São Paulo"), ("28", "SE", "Sergipe"), ("17", "TO", "Tocantins"),
+)
+STATE_BY_CODE = {code: {"id": id_, "code": code, "name": name} for id_, code, name in STATE_CATALOG}
+
 # Capitais estaduais used only as a deterministic UI filter.
 STATE_CAPITALS = {
     "AC": "Rio Branco",
