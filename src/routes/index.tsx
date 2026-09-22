@@ -318,7 +318,7 @@ function TargetsView({
   setMaxJobs: (value: number) => void;
 }) {
   const [mode, setMode] = useState<"br" | "world">("br");
-  const [stateCode, setStateCode] = useState("SC");
+  const [stateCode, setStateCode] = useState("");
   const [states, setStates] = useState<Array<{ id: string; code: string; name: string }>>([]);
   const [cities, setCities] = useState<TargetLocation[]>([]);
   const [worldCities, setWorldCities] = useState<TargetLocation[]>([]);
@@ -365,13 +365,16 @@ function TargetsView({
   useEffect(() => {
     if (mode === "br") {
       void loadBrazilStates()
-        .then(setStates)
+        .then((items) => {
+          setStates(items);
+          setStateCode((current) => current || items[0]?.code || "");
+        })
         .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)));
     }
   }, [mode]);
 
   useEffect(() => {
-    if (mode === "br") void refreshBrazil();
+    if (mode === "br" && stateCode) void refreshBrazil();
   }, [stateCode, mode]);
 
   const brazilResults = cities.filter((city) => {
@@ -430,12 +433,12 @@ function TargetsView({
               <label className="block">
                 <span className="field-label">UF</span>
                 <select className="field mt-2" value={stateCode} onChange={(e) => setStateCode(e.target.value)}>
-                  {states.length ? states.map((state) => <option key={state.code} value={state.code}>{state.code} — {state.name}</option>) : <option value="SC">SC</option>}
+                  {states.length ? states.map((state) => <option key={state.code} value={state.code}>{state.code} — {state.name}</option>) : <option value="" disabled>Carregando UFs...</option>}
                 </select>
               </label>
               <label className="block">
                 <span className="field-label">Buscar município</span>
-                <input className="field mt-2" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void refreshBrazil()} placeholder="Ex: Chapecó" />
+                <input className="field mt-2" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void refreshBrazil()} placeholder="Ex: Blumenau" />
               </label>
               <label className="block">
                 <span className="field-label">Escopo</span>
