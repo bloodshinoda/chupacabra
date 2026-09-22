@@ -3,6 +3,22 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 export type EngineProfile = "fast" | "balanced" | "aggressive";
 
+const BRAZIL_STATES = [
+  ["12", "AC", "Acre"], ["27", "AL", "Alagoas"], ["16", "AP", "Amapá"],
+  ["13", "AM", "Amazonas"], ["29", "BA", "Bahia"], ["23", "CE", "Ceará"],
+  ["53", "DF", "Distrito Federal"], ["32", "ES", "Espírito Santo"], ["52", "GO", "Goiás"],
+  ["21", "MA", "Maranhão"], ["51", "MT", "Mato Grosso"], ["50", "MS", "Mato Grosso do Sul"],
+  ["31", "MG", "Minas Gerais"], ["15", "PA", "Pará"], ["25", "PB", "Paraíba"],
+  ["41", "PR", "Paraná"], ["26", "PE", "Pernambuco"], ["22", "PI", "Piauí"],
+  ["33", "RJ", "Rio de Janeiro"], ["24", "RN", "Rio Grande do Norte"], ["43", "RS", "Rio Grande do Sul"],
+  ["11", "RO", "Rondônia"], ["14", "RR", "Roraima"], ["42", "SC", "Santa Catarina"],
+  ["35", "SP", "São Paulo"], ["28", "SE", "Sergipe"], ["17", "TO", "Tocantins"],
+] as const;
+
+const IBGE_LOCALIDADES = "https://servicodados.ibge.gov.br/api/v1/localidades";
+const IBGE_POPULATION = "https://apisidra.ibge.gov.br/values/t/4714/n6/all/v/93/p/2022";
+
+
 export type TargetLocation = {
   id: string;
   country: string;
@@ -72,8 +88,9 @@ export async function startRun(options: {
 }
 
 export async function loadBrazilStates(): Promise<Array<{ id: string; code: string; name: string }>> {
-  const response = await requestEngineCatalog("catalog_states");
-  return response.states ?? [];
+  return BRAZIL_STATES
+    .map(([id, code, name]) => ({ id, code, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
 
 export async function loadWorldCities(query: string, countryCode?: string): Promise<TargetLocation[]> {
