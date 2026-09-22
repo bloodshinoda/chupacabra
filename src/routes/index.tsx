@@ -37,6 +37,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { cancelRun, engineStatus, isTauriRuntime, listenEngineEvents, loadBrazilCities, loadBrazilStates, loadWorldCities, pauseRun, resumeRun, startRun, type EngineProfile, type TargetLocation } from "@/lib/engine";
 
@@ -435,9 +436,12 @@ function TargetsView({
             <div className="grid gap-4 lg:grid-cols-[220px_1fr_220px]">
               <label className="block">
                 <span className="field-label">UF</span>
-                <select className="field mt-2" value={stateCode} onChange={(e) => setStateCode(e.target.value)}>
-                  {states.length ? states.map((state) => <option key={state.code} value={state.code}>{state.code} — {state.name}</option>) : <option value="" disabled>{error ? "Falha ao carregar UFs" : "Carregando UFs..."}</option>}
-                </select>
+                <Select value={stateCode} onValueChange={setStateCode} disabled={!states.length}>
+                  <SelectTrigger className="field mt-2"><SelectValue placeholder="Selecione a UF" /></SelectTrigger>
+                  <SelectContent>
+                    {states.map((state) => <SelectItem key={state.code} value={state.code}>{state.code} — {state.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </label>
               <label className="block">
                 <span className="field-label">Buscar município</span>
@@ -445,11 +449,14 @@ function TargetsView({
               </label>
               <label className="block">
                 <span className="field-label">Escopo</span>
-                <select className="field mt-2" value={scope} onChange={(e) => setScope(e.target.value as typeof scope)}>
-                  <option value="manual">Seleção manual</option>
-                  <option value="all">Todos os municípios</option>
-                  <option value="capitals">Capital da UF</option>
-                </select>
+                <Select value={scope} onValueChange={(value) => setScope(value as typeof scope)}>
+                  <SelectTrigger className="field mt-2"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Seleção manual</SelectItem>
+                    <SelectItem value="all">Todos os municípios</SelectItem>
+                    <SelectItem value="capitals">Capital da UF</SelectItem>
+                  </SelectContent>
+                </Select>
               </label>
             </div>
 
@@ -540,7 +547,12 @@ function LeadsView() {
   </>;
 }
 
-function SelectField({value,setValue,options}:{value:string;setValue:(v:string)=>void;options:string[]}) { return <label className="relative"><select className="field appearance-none pr-8" value={value} onChange={e=>setValue(e.target.value)}>{options.map(o=><option key={o}>{o}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/></label>; }
+function SelectField({value,setValue,options}:{value:string;setValue:(v:string)=>void;options:string[]}) {
+  return <Select value={value} onValueChange={setValue}>
+    <SelectTrigger className="field"><SelectValue /></SelectTrigger>
+    <SelectContent>{options.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent>
+  </Select>;
+}
 function StatusBadge({status}:{status:string}) { return <span className={cn("status-badge", status==="Qualificado"&&"status-success", status==="Em análise"&&"status-info", status==="Descartado"&&"status-muted")}>{status}</span>; }
 
 function OutreachView() {
