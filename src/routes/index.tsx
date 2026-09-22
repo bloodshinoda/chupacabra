@@ -337,7 +337,7 @@ function TargetsView({
     setLoading(true);
     setError("");
     try {
-      setCities(await loadBrazilCities(stateCode, search));
+      setCities(await loadBrazilCities(stateCode, search, minPopulation > 0));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -367,9 +367,12 @@ function TargetsView({
       void loadBrazilStates()
         .then((items) => {
           setStates(items);
-          setStateCode((current) => current || items[0]?.code || "");
+          setStateCode((current) => current || (items.some((item) => item.code === "SC") ? "SC" : items[0]?.code || ""));
         })
-        .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)));
+        .catch((cause) => {
+          setStates([]);
+          setError(cause instanceof Error ? cause.message : String(cause));
+        });
     }
   }, [mode]);
 
@@ -433,7 +436,7 @@ function TargetsView({
               <label className="block">
                 <span className="field-label">UF</span>
                 <select className="field mt-2" value={stateCode} onChange={(e) => setStateCode(e.target.value)}>
-                  {states.length ? states.map((state) => <option key={state.code} value={state.code}>{state.code} — {state.name}</option>) : <option value="" disabled>Carregando UFs...</option>}
+                  {states.length ? states.map((state) => <option key={state.code} value={state.code}>{state.code} — {state.name}</option>) : <option value="" disabled>{error ? "Falha ao carregar UFs" : "Carregando UFs..."}</option>}
                 </select>
               </label>
               <label className="block">
