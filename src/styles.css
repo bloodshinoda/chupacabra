@@ -78,6 +78,9 @@
   html { color-scheme: dark; }
   body { margin: 0; background-color: var(--color-background); color: var(--color-foreground); font-family: var(--font-sans); letter-spacing: 0; }
   button, input, textarea, select { font: inherit; }
+  select { color-scheme: dark; }
+  select option { background-color: var(--surface); color: var(--foreground); }
+  select option:checked { background-color: color-mix(in oklab, var(--primary) 18%, var(--surface)); color: var(--foreground); }
   ::selection { background: color-mix(in oklab, var(--primary) 25%, transparent); color: var(--foreground); }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: var(--background); }
