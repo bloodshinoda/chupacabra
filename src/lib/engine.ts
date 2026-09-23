@@ -18,6 +18,16 @@ const BRAZIL_STATES = [
 const IBGE_LOCALIDADES = "https://servicodados.ibge.gov.br/api/v1/localidades";
 const IBGE_POPULATION = "https://apisidra.ibge.gov.br/values/t/4714/n6/all/v/93/p/2022";
 
+const STATE_CAPITALS: Record<string, string> = {
+  AC: "Rio Branco", AL: "Maceió", AP: "Macapá", AM: "Manaus",
+  BA: "Salvador", CE: "Fortaleza", DF: "Brasília", ES: "Vitória",
+  GO: "Goiânia", MA: "São Luís", MT: "Cuiabá", MS: "Campo Grande",
+  MG: "Belo Horizonte", PA: "Belém", PB: "João Pessoa", PR: "Curitiba",
+  PE: "Recife", PI: "Teresina", RJ: "Rio de Janeiro", RN: "Natal",
+  RS: "Porto Alegre", RO: "Porto Velho", RR: "Boa Vista", SC: "Florianópolis",
+  SP: "São Paulo", SE: "Aracaju", TO: "Palmas",
+};
+
 
 export type TargetLocation = {
   id: string;
@@ -142,7 +152,7 @@ export async function loadBrazilCities(
       state_name: state[2],
       city: city.nome,
       population_2022: populations.get(String(city.id)) ?? null,
-      is_capital: false,
+      is_capital: STATE_CAPITALS[state[1]] === city.nome,
     }))
     .sort((a, b) => a.city.localeCompare(b.city, "pt-BR"));
 }
