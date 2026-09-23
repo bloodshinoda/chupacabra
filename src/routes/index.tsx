@@ -486,8 +486,9 @@ function TargetsView({
 
         {error && <p className="border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{error}</p>}
 
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {results.slice(0, 60).map((city) => (
+        <div className="max-h-[420px] overflow-y-auto overscroll-contain border border-border bg-background/40 p-2 pr-1">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {results.map((city) => (
             <button key={city.id} onClick={() => toggleCity(city)} className={cn(
               "border p-3 text-left transition-colors",
               targets.some((item) => item.id === city.id) ? "border-primary bg-primary/10" : "border-border bg-surface hover:border-primary/40"
@@ -502,6 +503,7 @@ function TargetsView({
               {city.population_2022 != null && <span className="mt-1 block font-mono text-[9px] text-info">{city.population_2022.toLocaleString("pt-BR")} hab. · {city.is_capital ? "capital" : "município"}</span>}
             </button>
           ))}
+          </div>
         </div>
       </div>
     </section>
