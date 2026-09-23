@@ -91,8 +91,8 @@ function ChupacabraDashboard() {
   const [profile, setProfile] = useState<EngineProfile>("balanced");
   const [targets, setTargets] = useState<TargetLocation[]>([]);
   const [maxJobs, setMaxJobs] = useState(5000);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(categories.map(([id]) => id));
   const [categories] = useState<Array<[string, string]>>([["agencias_publicidade", "Agencias de publicidade"], ["graficas", "Graficas"], ["graficas_rapidas", "Grafica rapida"], ["comunicacao_visual", "Comunicacao visual"], ["marketing_digital", "Agencias de marketing digital"], ["brindes_corporativos", "Brindes corporativos"], ["eventos_corporativos", "Organizacao de eventos corporativos"], ["serigrafia_estamparia", "Serigrafia e estamparia"], ["imobiliarias", "Imobiliarias"], ["concessionarias", "Concessionarias de veiculos"], ["construtoras", "Construtoras"], ["clinicas_odontologicas", "Clinicas odontologicas"]]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(categories.map(([id]) => id));
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -508,7 +508,7 @@ function TargetsView({
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {categories.map(([id, label]) => {
               const active = selectedCategoryIds.includes(id);
-              return <button key={id} onClick={() => setSelectedCategories(active ? selectedCategoryIds.filter((item) => item !== id) : [...selectedCategories, id])} className={cn("border p-2.5 text-left text-xs transition-colors", active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/40")}>
+              return <button key={id} onClick={() => setSelectedCategoryIds(active ? selectedCategoryIds.filter((item) => item !== id) : [...selectedCategoryIds, id])} className={cn("border p-2.5 text-left text-xs transition-colors", active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/40")}>
                 <span className="flex items-center justify-between gap-2"><span>{label}</span>{active && <Check className="size-3.5" />}</span>
               </button>;
             })}
