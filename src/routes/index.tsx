@@ -91,6 +91,7 @@ function ChupacabraDashboard() {
   const [profile, setProfile] = useState<EngineProfile>("balanced");
   const [targets, setTargets] = useState<TargetLocation[]>([]);
   const [maxJobs, setMaxJobs] = useState(5000);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [categories] = useState<Array<[string, string]>>([["agencias_publicidade", "Agencias de publicidade"], ["graficas", "Graficas"], ["graficas_rapidas", "Grafica rapida"], ["comunicacao_visual", "Comunicacao visual"], ["marketing_digital", "Agencias de marketing digital"], ["brindes_corporativos", "Brindes corporativos"], ["eventos_corporativos", "Organizacao de eventos corporativos"], ["serigrafia_estamparia", "Serigrafia e estamparia"], ["imobiliarias", "Imobiliarias"], ["concessionarias", "Concessionarias de veiculos"], ["construtoras", "Construtoras"], ["clinicas_odontologicas", "Clinicas odontologicas"]]);
 
   useEffect(() => {
@@ -178,11 +179,11 @@ function ChupacabraDashboard() {
 
     try {
       if (!targets.length) throw new Error("Selecione ao menos uma cidade na Matriz de Alvos.");
-      const plannedJobs = targets.length * categories.length;
+      const plannedJobs = targets.length * categories.filter(([id]) => selectedCategoryIds.includes(id)).length;
       if (plannedJobs > maxJobs) {
         throw new Error(`A matriz possui ${plannedJobs.toLocaleString("pt-BR")} jobs e o limite atual é ${maxJobs.toLocaleString("pt-BR")}.`);
       }
-      await startRun({ profile, targets, categories, max_jobs: maxJobs });
+      await startRun({ profile, targets, categories: categories.filter(([id]) => selectedCategoryIds.includes(id)), max_jobs: maxJobs });
       setScanState("running");
     } catch (error) {
       setScanState("idle");
@@ -236,7 +237,7 @@ function ChupacabraDashboard() {
 
         <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
           {view === "dashboard" && <DashboardView scanState={scanState} setScanState={setScanState} startScan={startScan} onPause={handlePause} onResume={handleResume} onCancel={handleCancel} profile={profile} setProfile={setProfile} progress={progress} leadCount={leadCount} logs={logs} />}
-          {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} maxJobs={maxJobs} setMaxJobs={setMaxJobs} />}
+          {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} selectedCategoryIds={selectedCategoryIds} setSelectedCategoryIds={setSelectedCategoryIds} maxJobs={maxJobs} setMaxJobs={setMaxJobs} />}
           {view === "leads" && <LeadsView />}
           {view === "outreach" && <OutreachView />}
           {view === "reports" && <ReportsView />}
@@ -308,12 +309,16 @@ function TargetsView({
   targets,
   setTargets,
   categories,
+  selectedCategoryIds,
+  setSelectedCategoryIds,
   maxJobs,
   setMaxJobs,
 }: {
   targets: TargetLocation[];
   setTargets: (targets: TargetLocation[]) => void;
   categories: Array<[string, string]>;
+  selectedCategoryIds: string[];
+  setSelectedCategoryIds: (ids: string[]) => void;
   maxJobs: number;
   setMaxJobs: (value: number) => void;
 }) {
@@ -328,7 +333,6 @@ function TargetsView({
   const [minPopulation, setMinPopulation] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [selectedCategories, setSelectedCategories] = useState<string[]>(categories.map(([id]) => id));
 
   const refreshBrazil = async () => {
     if (!isTauriRuntime()) {
@@ -388,7 +392,7 @@ function TargetsView({
   });
 
   const results = mode === "br" ? brazilResults : worldCities;
-  const activeCategories = categories.filter(([id]) => selectedCategories.includes(id));
+  const activeCategories = categories.filter(([id]) => selectedCategoryIds.includes(id));
   const plannedJobs = targets.length * activeCategories.length;
   const overLimit = plannedJobs > maxJobs;
   const selectedVisibleCount = results.filter((city) => targets.some((item) => item.id === city.id)).length;
@@ -497,14 +501,14 @@ function TargetsView({
               <p className="mt-1 text-xs text-muted-foreground">{activeCategories.length} de {categories.length} categorias · {selectedVisibleCount} localidades selecionadas nesta busca</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setSelectedCategories(categories.map(([id]) => id))}>Todos</Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedCategoryIds(categories.map(([id]) => id))}>Todos</Button>
               <Button variant="ghost" size="sm" onClick={() => setSelectedCategories([])}>Nenhum</Button>
             </div>
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {categories.map(([id, label]) => {
-              const active = selectedCategories.includes(id);
-              return <button key={id} onClick={() => setSelectedCategories(active ? selectedCategories.filter((item) => item !== id) : [...selectedCategories, id])} className={cn("border p-2.5 text-left text-xs transition-colors", active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/40")}>
+              const active = selectedCategoryIds.includes(id);
+              return <button key={id} onClick={() => setSelectedCategories(active ? selectedCategoryIds.filter((item) => item !== id) : [...selectedCategories, id])} className={cn("border p-2.5 text-left text-xs transition-colors", active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/40")}>
                 <span className="flex items-center justify-between gap-2"><span>{label}</span>{active && <Check className="size-3.5" />}</span>
               </button>;
             })}
