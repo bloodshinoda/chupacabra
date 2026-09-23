@@ -179,6 +179,7 @@ function ChupacabraDashboard() {
 
     try {
       if (!targets.length) throw new Error("Selecione ao menos uma cidade na Matriz de Alvos.");
+      if (!selectedCategoryIds.length) throw new Error("Selecione ao menos um nicho na Matriz de Alvos.");
       const plannedJobs = targets.length * categories.filter(([id]) => selectedCategoryIds.includes(id)).length;
       if (plannedJobs > maxJobs) {
         throw new Error(`A matriz possui ${plannedJobs.toLocaleString("pt-BR")} jobs e o limite atual é ${maxJobs.toLocaleString("pt-BR")}.`);
@@ -432,6 +433,49 @@ function TargetsView({
 
     <section className="panel p-5">
       <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="field-label">1 · Nichos da campanha</p>
+            <p className="mt-1 text-xs text-muted-foreground">Escolha os segmentos que serão combinados com cada localidade selecionada.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[10px] text-muted-foreground">{activeCategories.length}/{categories.length} ativos</span>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedCategoryIds(categories.map(([id]) => id))}>Todos</Button>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedCategoryIds([])}>Nenhum</Button>
+          </div>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {categories.map(([id, label]) => {
+            const active = selectedCategoryIds.includes(id);
+            return <button
+              key={id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setSelectedCategoryIds(active ? selectedCategoryIds.filter((item) => item !== id) : [...selectedCategoryIds, id])}
+              className={cn(
+                "border p-3 text-left transition-colors",
+                active
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-background text-muted-foreground hover:border-primary/40"
+              )}
+            >
+              <span className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium">{label}</span>
+                {active && <Check className="size-4" />}
+              </span>
+            </button>;
+          })}
+        </div>
+        {!activeCategories.length && (
+          <p className="border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
+            Selecione ao menos um nicho para montar a campanha.
+          </p>
+        )}
+      </div>
+    </section>
+
+    <section className="panel p-5">
+      <div className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-2">
           <Button variant={mode === "br" ? "default" : "outline"} onClick={() => setMode("br")}>Brasil · IBGE</Button>
           <Button variant={mode === "world" ? "default" : "outline"} onClick={() => setMode("world")}>Internacional</Button>
@@ -494,27 +538,6 @@ function TargetsView({
 
         {error && <p className="border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{error}</p>}
 
-        <div className="border border-border bg-surface p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="field-label">Nichos ativos</p>
-              <p className="mt-1 text-xs text-muted-foreground">{activeCategories.length} de {categories.length} categorias · {selectedVisibleCount} localidades selecionadas nesta busca</p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setSelectedCategoryIds(categories.map(([id]) => id))}>Todos</Button>
-              <Button variant="ghost" size="sm" onClick={() => setSelectedCategories([])}>Nenhum</Button>
-            </div>
-          </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {categories.map(([id, label]) => {
-              const active = selectedCategoryIds.includes(id);
-              return <button key={id} onClick={() => setSelectedCategoryIds(active ? selectedCategoryIds.filter((item) => item !== id) : [...selectedCategoryIds, id])} className={cn("border p-2.5 text-left text-xs transition-colors", active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/40")}>
-                <span className="flex items-center justify-between gap-2"><span>{label}</span>{active && <Check className="size-3.5" />}</span>
-              </button>;
-            })}
-          </div>
-        </div>
-
         <div className="max-h-[420px] overflow-y-auto overscroll-contain border border-border bg-background/40 p-2 pr-1">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {results.map((city) => (
@@ -541,7 +564,7 @@ function TargetsView({
       <div className="grid gap-4 lg:grid-cols-[1fr_220px_auto] lg:items-end">
         <div>
           <h3 className="font-display font-semibold">Campanha planejada</h3>
-          <p className="mt-1 text-xs text-muted-foreground">{targets.length} localidades · {activeCategories.length} nichos · {plannedJobs.toLocaleString("pt-BR")} jobs previstos</p>
+          <p className="mt-1 text-xs text-muted-foreground">{targets.length} localidades × {activeCategories.length} nichos = {plannedJobs.toLocaleString("pt-BR")} jobs previstos</p>
         </div>
         <label className="block">
           <span className="field-label">Limite máximo de jobs</span>
@@ -551,7 +574,7 @@ function TargetsView({
       </div>
 
       {overLimit && <p className="mt-4 border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">A campanha ultrapassa o limite. O engine também bloqueia matrizes acima de 10.000 jobs.</p>}
-      {!activeCategories.length && <p className="mt-4 border border-warning/30 bg-warning/5 p-3 text-xs text-warning">Selecione ao menos um nicho antes de iniciar a varredura.</p>}
+
 
       <div className="mt-4 flex flex-wrap gap-2">
         {targets.map((target) => (
