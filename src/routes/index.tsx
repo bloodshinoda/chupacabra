@@ -328,6 +328,7 @@ function TargetsView({
   const [minPopulation, setMinPopulation] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(categories.map(([id]) => id));
 
   const refreshBrazil = async () => {
     if (!isTauriRuntime()) {
@@ -387,8 +388,10 @@ function TargetsView({
   });
 
   const results = mode === "br" ? brazilResults : worldCities;
-  const plannedJobs = targets.length * categories.length;
+  const activeCategories = categories.filter(([id]) => selectedCategories.includes(id));
+  const plannedJobs = targets.length * activeCategories.length;
   const overLimit = plannedJobs > maxJobs;
+  const selectedVisibleCount = results.filter((city) => targets.some((item) => item.id === city.id)).length;
 
   const toggleCity = (city: TargetLocation) => {
     const exists = targets.some((item) => item.id === city.id);
@@ -396,11 +399,11 @@ function TargetsView({
   };
 
   const addAllVisible = () => {
-    const incoming = results.slice(0, Math.max(0, Math.floor(maxJobs / Math.max(categories.length, 1))));
+    const incoming = results.slice(0, Math.max(0, Math.floor(maxJobs / Math.max(activeCategories.length, 1))));
     const merged = new Map(targets.map((target) => [target.id, target]));
     incoming.forEach((target) => merged.set(target.id, target));
     const next = [...merged.values()];
-    if (next.length * categories.length > maxJobs) {
+    if (next.length * activeCategories.length > maxJobs) {
       setError("A seleção excede o limite de jobs. Reduza o número de categorias ou aumente o limite.");
       return;
     }
@@ -466,7 +469,8 @@ function TargetsView({
               </label>
               <div className="flex items-end gap-2">
                 <Button variant="outline" onClick={() => void refreshBrazil()} disabled={loading}>{loading ? "Carregando..." : "Atualizar municípios"}</Button>
-                <Button variant="outline" onClick={addAllVisible} disabled={!brazilResults.length}>Adicionar filtrados</Button>
+                <Button variant="outline" onClick={addAllVisible} disabled={!results.length || !activeCategories.length}>Adicionar filtrados</Button>
+                <Button variant="outline" onClick={() => setTargets([])} disabled={!targets.length}>Limpar seleção</Button>
               </div>
             </div>
           </>
@@ -485,6 +489,27 @@ function TargetsView({
         )}
 
         {error && <p className="border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{error}</p>}
+
+        <div className="border border-border bg-surface p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="field-label">Nichos ativos</p>
+              <p className="mt-1 text-xs text-muted-foreground">{activeCategories.length} de {categories.length} categorias · {selectedVisibleCount} localidades selecionadas nesta busca</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedCategories(categories.map(([id]) => id))}>Todos</Button>
+              <Button variant="ghost" size="sm" onClick={() => setSelectedCategories([])}>Nenhum</Button>
+            </div>
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            {categories.map(([id, label]) => {
+              const active = selectedCategories.includes(id);
+              return <button key={id} onClick={() => setSelectedCategories(active ? selectedCategories.filter((item) => item !== id) : [...selectedCategories, id])} className={cn("border p-2.5 text-left text-xs transition-colors", active ? "border-primary bg-primary/10 text-primary" : "border-border bg-background text-muted-foreground hover:border-primary/40")}>
+                <span className="flex items-center justify-between gap-2"><span>{label}</span>{active && <Check className="size-3.5" />}</span>
+              </button>;
+            })}
+          </div>
+        </div>
 
         <div className="max-h-[420px] overflow-y-auto overscroll-contain border border-border bg-background/40 p-2 pr-1">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -512,7 +537,7 @@ function TargetsView({
       <div className="grid gap-4 lg:grid-cols-[1fr_220px_auto] lg:items-end">
         <div>
           <h3 className="font-display font-semibold">Campanha planejada</h3>
-          <p className="mt-1 text-xs text-muted-foreground">{targets.length} localidades · {plannedJobs.toLocaleString("pt-BR")} jobs previstos</p>
+          <p className="mt-1 text-xs text-muted-foreground">{targets.length} localidades · {activeCategories.length} nichos · {plannedJobs.toLocaleString("pt-BR")} jobs previstos</p>
         </div>
         <label className="block">
           <span className="field-label">Limite máximo de jobs</span>
@@ -522,6 +547,7 @@ function TargetsView({
       </div>
 
       {overLimit && <p className="mt-4 border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">A campanha ultrapassa o limite. O engine também bloqueia matrizes acima de 10.000 jobs.</p>}
+      {!activeCategories.length && <p className="mt-4 border border-warning/30 bg-warning/5 p-3 text-xs text-warning">Selecione ao menos um nicho antes de iniciar a varredura.</p>}
 
       <div className="mt-4 flex flex-wrap gap-2">
         {targets.map((target) => (
