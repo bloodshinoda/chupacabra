@@ -91,7 +91,7 @@ function ChupacabraDashboard() {
   const [profile, setProfile] = useState<EngineProfile>("balanced");
   const [targets, setTargets] = useState<TargetLocation[]>([]);
   const [maxJobs, setMaxJobs] = useState(5000);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(categories.map(([id]) => id));
   const [categories] = useState<Array<[string, string]>>([["agencias_publicidade", "Agencias de publicidade"], ["graficas", "Graficas"], ["graficas_rapidas", "Grafica rapida"], ["comunicacao_visual", "Comunicacao visual"], ["marketing_digital", "Agencias de marketing digital"], ["brindes_corporativos", "Brindes corporativos"], ["eventos_corporativos", "Organizacao de eventos corporativos"], ["serigrafia_estamparia", "Serigrafia e estamparia"], ["imobiliarias", "Imobiliarias"], ["concessionarias", "Concessionarias de veiculos"], ["construtoras", "Construtoras"], ["clinicas_odontologicas", "Clinicas odontologicas"]]);
 
   useEffect(() => {
