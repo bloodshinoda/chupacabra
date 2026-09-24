@@ -385,6 +385,8 @@ function TargetsView({
   categories,
   selectedCategoryIds,
   setSelectedCategoryIds,
+  customCategories,
+  setCustomCategories,
   maxJobs,
   setMaxJobs,
 }: {
