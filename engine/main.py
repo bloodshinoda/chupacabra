@@ -9,7 +9,7 @@ from engine.orchestration.targets import CATEGORIES, CITIES, build_queries
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Chupacabra prospecting engine")
-    parser.add_argument("--profile", choices=("fast", "balanced", "aggressive"), default="fast")
+    parser.add_argument("--profile", choices=("rapido", "balanceado", "chupacabra"), default="balanceado")
     parser.add_argument("--query", help="Run one explicit Google Maps query")
     parser.add_argument("--city", action="append", help="City to include in matrix mode")
     parser.add_argument("--category", action="append", help="Category slug to include in matrix mode")
