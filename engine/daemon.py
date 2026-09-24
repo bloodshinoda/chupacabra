@@ -40,7 +40,7 @@ class EngineDaemon:
             if self._run_thread is not None and self._run_thread.is_alive():
                 raise RuntimeError("A prospecting run is already active")
 
-            profile = str(payload.get("profile", "fast"))
+            profile = str(payload.get("profile", "balanceado"))
             runs_dir = str(payload.get("runs_dir", "runs"))
             self.runner.store = RunStore(Path(runs_dir))
 
