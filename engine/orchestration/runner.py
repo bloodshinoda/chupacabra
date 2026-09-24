@@ -160,7 +160,8 @@ class ProspectingRunner:
         job.enriched_file = None
         job.log_file = str(self.store.job_log_path(run.id, job.id))
         self.store.save_job(run.id, job)
-        self.events.emit("job_started", job=job.to_dict())
+        run.recalculate()
+        self.events.emit("job_started", run=run.to_dict(), job=job.to_dict())
 
         handler = logging.FileHandler(job.log_file, encoding="utf-8")
         formatter = logging.Formatter("%(asctime)s %(levelname)-8s %(name)s — %(message)s")
@@ -197,10 +198,12 @@ class ProspectingRunner:
                 shutil.move(str(generated), str(enriched))
             job.enriched_file = str(enriched)
             job.complete(result.count)
-            self.events.emit("job_completed", job=job.to_dict())
+            run.recalculate()
+            self.events.emit("job_completed", run=run.to_dict(), job=job.to_dict())
         except Exception as exc:
             job.fail(str(exc))
-            self.events.emit("job_failed", job=job.to_dict(), error=str(exc))
+            run.recalculate()
+            self.events.emit("job_failed", run=run.to_dict(), job=job.to_dict(), error=str(exc))
         finally:
             root_logger.removeHandler(handler)
             handler.close()
