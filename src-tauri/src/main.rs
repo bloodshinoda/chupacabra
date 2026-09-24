@@ -116,6 +116,19 @@ fn ensure_engine(app: &tauri::AppHandle, state: &EngineState) -> Result<(), Stri
         .spawn()
         .map_err(|error| format!("failed to start Chupacabra engine: {error}"))?;
 
+    // Give the bundled process a short window to fail fast (for example,
+    // missing PyInstaller imports) instead of reporting a false-positive
+    // successful start to the frontend.
+    for _ in 0..20 {
+        if let Some(status) = child
+            .try_wait()
+            .map_err(|error| format!("failed to inspect Chupacabra engine: {error}"))?
+        {
+            return Err(format!("Chupacabra engine encerrou ao iniciar: {status}"));
+        }
+        thread::sleep(std::time::Duration::from_millis(25));
+    }
+
     let stdout = child
         .stdout
         .take()
@@ -190,21 +203,25 @@ fn engine_command(
 }
 
 #[tauri::command]
-fn engine_status(state: State<'_, EngineState>) -> Result<String, String> {
+fn engine_status(
+    app: tauri::AppHandle,
+    state: State<'_, EngineState>,
+) -> Result<String, String> {
+    ensure_engine(&app, &state)?;
+
     let mut process = state
         .process
         .lock()
         .map_err(|_| "engine process lock poisoned")?;
-    Ok(
-        if process
-            .as_mut()
-            .is_some_and(|child| child.try_wait().ok().flatten().is_none())
-        {
-            "running".to_string()
-        } else {
-            "stopped".to_string()
-        },
-    )
+
+    if process
+        .as_mut()
+        .is_some_and(|child| child.try_wait().ok().flatten().is_none())
+    {
+        Ok("running".to_string())
+    } else {
+        Ok("stopped".to_string())
+    }
 }
 
 fn main() {
