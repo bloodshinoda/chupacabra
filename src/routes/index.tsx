@@ -163,7 +163,6 @@ function ChupacabraDashboard() {
     ["marketplaces", "Marketplaces"],
   ]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(categories.map(([id]) => id));
-  const [categoryQuery, setCategoryQuery] = useState("");
   const [customCategories, setCustomCategories] = useState<Array<[string, string]>>([]);
 
   useEffect(() => {
@@ -411,6 +410,7 @@ function TargetsView({
   const [minPopulation, setMinPopulation] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [categoryQuery, setCategoryQuery] = useState("");
 
   const refreshBrazil = async () => {
     if (!isTauriRuntime()) {
