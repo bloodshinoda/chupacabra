@@ -86,7 +86,8 @@ function ChupacabraDashboard() {
   const [view, setView] = useState<View>("dashboard");
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [logs, setLogs] = useState(INITIAL_LOGS);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [engineOnline, setEngineOnline] = useState(false);
   const [progress, setProgress] = useState(0);
   const [leadCount, setLeadCount] = useState(0);
   const [profile, setProfile] = useState<EngineProfile>("balanceado");
@@ -172,7 +173,7 @@ function ChupacabraDashboard() {
     let unlisten: (() => void) | undefined;
 
     void Promise.all([
-      engineStatus(),
+      engineStatus().then((status) => setEngineOnline(status === "running")),
       listenEngineEvents((event) => {
         if (!active) return;
 
@@ -182,6 +183,16 @@ function ChupacabraDashboard() {
         };
 
         switch (event.type) {
+          case "engine_ready":
+            setEngineOnline(true);
+            addLog("Motor de extração pronto.");
+            break;
+          case "engine_stderr":
+            addLog(`Engine · ${event.error ?? "erro no processo"}`);
+            break;
+          case "engine_status":
+            setEngineOnline(true);
+            break;
           case "run_started":
             setScanState("running");
             setProgress(5);
@@ -222,6 +233,7 @@ function ChupacabraDashboard() {
             addLog("Execução concluída.");
             break;
           case "engine_error":
+            setEngineOnline(false);
             addLog(`Erro do engine · ${event.error ?? "erro desconhecido"}.`);
             break;
         }
@@ -230,6 +242,7 @@ function ChupacabraDashboard() {
       if (active) unlisten = stop;
       else stop();
     }).catch((error) => {
+      setEngineOnline(false);
       addEngineLog(setLogs, `Falha ao conectar ao engine · ${error instanceof Error ? error.message : String(error)}`);
     });
 
@@ -293,7 +306,7 @@ function ChupacabraDashboard() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="noise-overlay" />
-      <Sidebar view={view} setView={setView} open={mobileOpen} setOpen={setMobileOpen} scanState={scanState} />
+      <Sidebar view={view} setView={setView} open={mobileOpen} setOpen={setMobileOpen} scanState={scanState} engineOnline={engineOnline} />
       <main className="min-h-screen lg:pl-64">
         <header className="sticky top-0 z-30 grid h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir navegação"><Menu /></Button>
@@ -325,7 +338,7 @@ function addEngineLog(setLogs: React.Dispatch<React.SetStateAction<string[]>>, m
   setLogs((current) => [...current.slice(-7), `[${new Date().toLocaleTimeString("pt-BR")}] ${message}`]);
 }
 
-function Sidebar({ view, setView, open, setOpen, scanState }: { view: View; setView: (v: View) => void; open: boolean; setOpen: (v: boolean) => void; scanState: ScanState }) {
+function Sidebar({ view, setView, open, setOpen, scanState, engineOnline }: { view: View; setView: (v: View) => void; open: boolean; setOpen: (v: boolean) => void; scanState: ScanState; engineOnline: boolean }) {
   return <>
     {open && <button aria-label="Fechar navegação" className="fixed inset-0 z-40 bg-overlay lg:hidden" onClick={() => setOpen(false)} />}
     <aside className={cn("fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-sidebar transition-transform duration-300 lg:translate-x-0", open ? "translate-x-0" : "-translate-x-full")}>
@@ -339,11 +352,11 @@ function Sidebar({ view, setView, open, setOpen, scanState }: { view: View; setV
       </nav>
       <div className="m-3 border border-border bg-surface p-3">
         <div className="flex items-center justify-between"><span className="font-mono text-[9px] uppercase text-muted-foreground">Engine status</span><Activity className="size-4 text-primary" /></div>
-        <div className="mt-3 flex items-center gap-2"><span className={cn("status-dot", scanState === "paused" && "bg-warning", scanState === "idle" && "bg-muted-foreground shadow-none")} /><span className="text-xs font-medium">{scanState === "running" ? "Operando" : scanState === "paused" ? "Pausado" : "Em espera"}</span></div>
-        <div className="mt-3 h-1 overflow-hidden bg-muted"><div className="h-full w-3/4 bg-primary shadow-glow" /></div>
-        <div className="mt-2 flex justify-between font-mono text-[9px] text-muted-foreground"><span>CPU 24%</span><span>MEM 1.8 GB</span></div>
+        <div className="mt-3 flex items-center gap-2"><span className={cn("status-dot", !engineOnline && "bg-destructive shadow-none", scanState === "paused" && "bg-warning")} /><span className="text-xs font-medium">{!engineOnline ? "Offline" : scanState === "running" ? "Operando" : scanState === "paused" ? "Pausado" : "Em espera"}</span></div>
+        <div className="mt-3 h-1 overflow-hidden bg-muted"><div className="h-full w-full bg-primary shadow-glow" /></div>
+        <div className="mt-2 flex justify-between font-mono text-[9px] text-muted-foreground"><span>Processo IPC conectado</span></div>
       </div>
-      <div className="border-t border-border px-5 py-4 font-mono text-[9px] text-muted-foreground"><div className="flex justify-between"><span>BUILD</span><span className="text-primary">v2.4.0 STABLE</span></div></div>
+      <div className="border-t border-border px-5 py-4 font-mono text-[9px] text-muted-foreground"><div className="flex justify-between"><span>BUILD</span><span className="text-primary">v0.2.0 DEV</span></div></div>
     </aside>
   </>;
 }
