@@ -57,7 +57,7 @@ class EngineLifecycleTests(unittest.TestCase):
             events = []
             runner.events._handler = lambda event: events.append(event.type)
 
-            run = runner.run([("teste", "Chapeco", "Agencia", "consulta")], profile="fast")
+            run = runner.run([("teste", "Chapeco", "Agencia", "consulta")], profile="rapido")
 
             self.assertEqual(run.status.value, "failed")
             self.assertEqual(run.failed_jobs, 1)
@@ -79,7 +79,7 @@ class EngineLifecycleTests(unittest.TestCase):
                     ("primeiro", "Chapeco", "Agencia", "consulta 1"),
                     ("segundo", "Chapeco", "Grafica", "consulta 2"),
                 ],
-                profile="fast",
+                profile="rapido",
             )
 
             self.assertEqual(run.status.value, "cancelled")
@@ -96,7 +96,7 @@ class EngineLifecycleTests(unittest.TestCase):
                 crawler=FakeCrawler(Path(tmp)),
             )
 
-            run = runner.run([("teste", "Chapeco", "Agencia", "consulta")], profile="fast")
+            run = runner.run([("teste", "Chapeco", "Agencia", "consulta")], profile="rapido")
             enriched = Path(run.jobs[0].enriched_file)
 
             self.assertEqual(enriched.name, "enriched.csv")
