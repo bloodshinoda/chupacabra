@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
-export type EngineProfile = "fast" | "balanced" | "aggressive";
+export type EngineProfile = "rapido" | "balanceado" | "chupacabra";
 
 const BRAZIL_STATES = [
   ["12", "AC", "Acre"], ["27", "AL", "Alagoas"], ["16", "AP", "Amapá"],
