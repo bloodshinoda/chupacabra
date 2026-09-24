@@ -315,7 +315,7 @@ function ChupacabraDashboard() {
             <h1 className="truncate text-sm font-semibold sm:text-base">{currentLabel}</h1>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-            <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex"><span className="status-dot" /> Sistema operacional</div>
+            <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex"><span className={cn("status-dot", engineOnline ? "" : "bg-destructive shadow-none")} /> {engineOnline ? "Engine operacional" : "Engine offline"}</div>
             <Button variant="outline" size="icon" aria-label="Configurações"><Settings2 /></Button>
             <div className="grid size-8 place-items-center rounded-md border border-primary/30 bg-primary/10 font-mono text-xs font-bold text-primary">RG</div>
           </div>
