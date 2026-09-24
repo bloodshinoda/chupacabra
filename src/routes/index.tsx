@@ -33,6 +33,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -91,8 +92,79 @@ function ChupacabraDashboard() {
   const [profile, setProfile] = useState<EngineProfile>("balanced");
   const [targets, setTargets] = useState<TargetLocation[]>([]);
   const [maxJobs, setMaxJobs] = useState(5000);
-  const [categories] = useState<Array<[string, string]>>([["agencias_publicidade", "Agencias de publicidade"], ["graficas", "Graficas"], ["graficas_rapidas", "Grafica rapida"], ["comunicacao_visual", "Comunicacao visual"], ["marketing_digital", "Agencias de marketing digital"], ["brindes_corporativos", "Brindes corporativos"], ["eventos_corporativos", "Organizacao de eventos corporativos"], ["serigrafia_estamparia", "Serigrafia e estamparia"], ["imobiliarias", "Imobiliarias"], ["concessionarias", "Concessionarias de veiculos"], ["construtoras", "Construtoras"], ["clinicas_odontologicas", "Clinicas odontologicas"]]);
+  const [categories] = useState<Array<[string, string]>>([
+    ["agencias_publicidade", "Agências de publicidade"],
+    ["graficas", "Gráficas"],
+    ["graficas_rapidas", "Gráficas rápidas"],
+    ["comunicacao_visual", "Comunicação visual"],
+    ["marketing_digital", "Agências de marketing digital"],
+    ["brindes_corporativos", "Brindes corporativos"],
+    ["eventos_corporativos", "Organização de eventos corporativos"],
+    ["serigrafia_estamparia", "Serigrafia e estamparia"],
+    ["imobiliarias", "Imobiliárias"],
+    ["concessionarias", "Concessionárias de veículos"],
+    ["construtoras", "Construtoras"],
+    ["clinicas_odontologicas", "Clínicas odontológicas"],
+    ["academias", "Academias"],
+    ["restaurantes", "Restaurantes"],
+    ["bares", "Bares"],
+    ["hoteis", "Hotéis"],
+    ["pousadas", "Pousadas"],
+    ["turismo", "Agências de turismo"],
+    ["escolas", "Escolas particulares"],
+    ["cursos_profissionalizantes", "Cursos profissionalizantes"],
+    ["faculdades", "Faculdades"],
+    ["clinicas_medicas", "Clínicas médicas"],
+    ["clinicas_veterinarias", "Clínicas veterinárias"],
+    ["hospitais", "Hospitais"],
+    ["farmacias", "Farmácias"],
+    ["laboratorios", "Laboratórios"],
+    ["psicologia", "Psicologia"],
+    ["nutricao", "Nutrição"],
+    ["fisioterapia", "Fisioterapia"],
+    ["advocacia", "Escritórios de advocacia"],
+    ["contabilidade", "Contabilidade"],
+    ["consultoria", "Consultorias"],
+    ["recursos_humanos", "Recursos humanos"],
+    ["seguros", "Seguradoras e corretores de seguros"],
+    ["bancos", "Bancos"],
+    ["concessionarias_motos", "Concessionárias de motos"],
+    ["oficinas", "Oficinas mecânicas"],
+    ["autopecas", "Autopeças"],
+    ["transportadoras", "Transportadoras"],
+    ["logistica", "Empresas de logística"],
+    ["industria_metalurgica", "Metalúrgicas"],
+    ["industria_textil", "Indústrias têxteis"],
+    ["industria_alimenticia", "Indústrias alimentícias"],
+    ["industria_moveleira", "Indústrias moveleiras"],
+    ["agropecuaria", "Agropecuárias"],
+    ["cooperativas", "Cooperativas"],
+    ["distribuidoras", "Distribuidoras"],
+    ["supermercados", "Supermercados"],
+    ["lojas_materiais_construcao", "Lojas de materiais de construção"],
+    ["lojas_moveis", "Lojas de móveis"],
+    ["lojas_eletrodomesticos", "Lojas de eletrodomésticos"],
+    ["moda", "Lojas de moda"],
+    ["joalherias", "Joalherias"],
+    ["pet_shops", "Pet shops"],
+    ["salões_beleza", "Salões de beleza"],
+    ["estetica", "Clínicas de estética"],
+    ["fotografia", "Fotografia"],
+    ["producao_video", "Produção audiovisual"],
+    ["arquitetura", "Arquitetura"],
+    ["engenharia", "Engenharia"],
+    ["energia_solar", "Energia solar"],
+    ["seguranca", "Segurança privada"],
+    ["limpeza", "Empresas de limpeza"],
+    ["tecnologia", "Empresas de tecnologia"],
+    ["software", "Software e SaaS"],
+    ["provedores_internet", "Provedores de internet"],
+    ["ecommerce", "E-commerce"],
+    ["marketplaces", "Marketplaces"],
+  ]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(categories.map(([id]) => id));
+  const [categoryQuery, setCategoryQuery] = useState("");
+  const [customCategories, setCustomCategories] = useState<Array<[string, string]>>([]);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -180,11 +252,12 @@ function ChupacabraDashboard() {
     try {
       if (!targets.length) throw new Error("Selecione ao menos uma cidade na Matriz de Alvos.");
       if (!selectedCategoryIds.length) throw new Error("Selecione ao menos um nicho na Matriz de Alvos.");
-      const plannedJobs = targets.length * categories.filter(([id]) => selectedCategoryIds.includes(id)).length;
+      const plannedJobs = targets.length * [...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length;
       if (plannedJobs > maxJobs) {
         throw new Error(`A matriz possui ${plannedJobs.toLocaleString("pt-BR")} jobs e o limite atual é ${maxJobs.toLocaleString("pt-BR")}.`);
       }
-      await startRun({ profile, targets, categories: categories.filter(([id]) => selectedCategoryIds.includes(id)), max_jobs: maxJobs });
+      const allCategories = [...categories, ...customCategories];
+      await startRun({ profile, targets, categories: allCategories.filter(([id]) => selectedCategoryIds.includes(id)), max_jobs: maxJobs });
       setScanState("running");
     } catch (error) {
       setScanState("idle");
@@ -238,7 +311,7 @@ function ChupacabraDashboard() {
 
         <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
           {view === "dashboard" && <DashboardView scanState={scanState} setScanState={setScanState} startScan={startScan} onPause={handlePause} onResume={handleResume} onCancel={handleCancel} profile={profile} setProfile={setProfile} progress={progress} leadCount={leadCount} logs={logs} />}
-          {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} selectedCategoryIds={selectedCategoryIds} setSelectedCategoryIds={setSelectedCategoryIds} maxJobs={maxJobs} setMaxJobs={setMaxJobs} />}
+          {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} selectedCategoryIds={selectedCategoryIds} setSelectedCategoryIds={setSelectedCategoryIds} customCategories={customCategories} setCustomCategories={setCustomCategories} maxJobs={maxJobs} setMaxJobs={setMaxJobs} />}
           {view === "leads" && <LeadsView />}
           {view === "outreach" && <OutreachView />}
           {view === "reports" && <ReportsView />}
@@ -320,6 +393,8 @@ function TargetsView({
   categories: Array<[string, string]>;
   selectedCategoryIds: string[];
   setSelectedCategoryIds: (ids: string[]) => void;
+  customCategories: Array<[string, string]>;
+  setCustomCategories: (categories: Array<[string, string]>) => void;
   maxJobs: number;
   setMaxJobs: (value: number) => void;
 }) {
@@ -393,7 +468,26 @@ function TargetsView({
   });
 
   const results = mode === "br" ? brazilResults : worldCities;
-  const activeCategories = categories.filter(([id]) => selectedCategoryIds.includes(id));
+  const allCategories = [...categories, ...customCategories];
+  const normalizedQuery = categoryQuery.trim().toLocaleLowerCase("pt-BR");
+  const filteredCategories = allCategories.filter(([, label]) =>
+    !normalizedQuery || label.toLocaleLowerCase("pt-BR").includes(normalizedQuery)
+  );
+  const activeCategories = allCategories.filter(([id]) => selectedCategoryIds.includes(id));
+  const addCustomCategory = () => {
+    const label = categoryQuery.trim();
+    if (!label) return;
+    const existing = allCategories.find(([, item]) => item.toLocaleLowerCase("pt-BR") === label.toLocaleLowerCase("pt-BR"));
+    if (existing) {
+      if (!selectedCategoryIds.includes(existing[0])) setSelectedCategoryIds([...selectedCategoryIds, existing[0]]);
+      setCategoryQuery("");
+      return;
+    }
+    const id = `custom:${crypto.randomUUID()}`;
+    setCustomCategories([...customCategories, [id, label]]);
+    setSelectedCategoryIds([...selectedCategoryIds, id]);
+    setCategoryQuery("");
+  };
   const plannedJobs = targets.length * activeCategories.length;
   const overLimit = plannedJobs > maxJobs;
   const selectedVisibleCount = results.filter((city) => targets.some((item) => item.id === city.id)).length;
@@ -436,16 +530,30 @@ function TargetsView({
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="field-label">1 · Nichos da campanha</p>
-            <p className="mt-1 text-xs text-muted-foreground">Escolha os segmentos que serão combinados com cada localidade selecionada.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Escolha uma sugestão ou digite qualquer nicho para criar uma consulta personalizada.</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-mono text-[10px] text-muted-foreground">{activeCategories.length}/{categories.length} ativos</span>
-            <Button variant="ghost" size="sm" onClick={() => setSelectedCategoryIds(categories.map(([id]) => id))}>Todos</Button>
+            <span className="font-mono text-[10px] text-muted-foreground">{activeCategories.length}/{allCategories.length} ativos</span>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedCategoryIds(allCategories.map(([id]) => id))}>Todos</Button>
             <Button variant="ghost" size="sm" onClick={() => setSelectedCategoryIds([])}>Nenhum</Button>
           </div>
         </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={categoryQuery}
+              onChange={(e) => setCategoryQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addCustomCategory()}
+              placeholder="Buscar nicho ou digitar um novo..."
+              className="pl-9"
+              aria-label="Buscar ou adicionar nicho"
+            />
+          </div>
+          <Button onClick={addCustomCategory} disabled={!categoryQuery.trim()}><Plus /> Adicionar nicho</Button>
+        </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {categories.map(([id, label]) => {
+          {filteredCategories.map(([id, label]) => {
             const active = selectedCategoryIds.includes(id);
             return <button
               key={id}
