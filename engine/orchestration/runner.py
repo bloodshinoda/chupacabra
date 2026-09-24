@@ -70,7 +70,7 @@ class ProspectingRunner:
         self,
         jobs: Iterable[tuple[str, str, str, str]],
         *,
-        profile: str | RunProfile = "balanced",
+        profile: str | RunProfile = "balanceado",
         lang: str = "pt",
         country: str = "br",
     ) -> ProspectingRun:
