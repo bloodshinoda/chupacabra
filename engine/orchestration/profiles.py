@@ -1,4 +1,4 @@
-"""Execution profiles that translate the old BAT behavior into engine settings."""
+"""Perfis de execução do motor Chupacabra."""
 from dataclasses import dataclass
 
 
@@ -16,39 +16,9 @@ class RunProfile:
 
 
 _PROFILES = {
-    "fast": RunProfile(
-        name="fast",
-        limit=250,
-        scraper_concurrency=5,
-        scrape_websites=False,
-        web_concurrency=4,
-        web_batch_size=100,
-        web_timeout=6,
-        delay_min=3,
-        delay_max=7,
-    ),
-    "balanced": RunProfile(
-        name="balanced",
-        limit=500,
-        scraper_concurrency=3,
-        scrape_websites=True,
-        web_concurrency=8,
-        web_batch_size=100,
-        web_timeout=10,
-        delay_min=8,
-        delay_max=16,
-    ),
-    "aggressive": RunProfile(
-        name="aggressive",
-        limit=1000,
-        scraper_concurrency=3,
-        scrape_websites=True,
-        web_concurrency=10,
-        web_batch_size=100,
-        web_timeout=10,
-        delay_min=15,
-        delay_max=35,
-    ),
+    "rapido": RunProfile("rapido", 250, 5, False, 4, 100, 6, 3, 7),
+    "balanceado": RunProfile("balanceado", 500, 3, True, 8, 100, 10, 8, 16),
+    "chupacabra": RunProfile("chupacabra", 1000, 3, True, 10, 100, 10, 15, 35),
 }
 
 
@@ -58,9 +28,8 @@ def get_profile(name: str) -> RunProfile:
         return _PROFILES[key]
     except KeyError as exc:
         valid = ", ".join(sorted(_PROFILES))
-        raise ValueError(f"Unknown profile '{name}'. Valid profiles: {valid}") from exc
+        raise ValueError(f"Perfil desconhecido '{name}'. Perfis válidos: {valid}") from exc
 
 
 def profiles() -> tuple[RunProfile, ...]:
-    """Return all built-in profiles."""
     return tuple(_PROFILES.values())
