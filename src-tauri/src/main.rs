@@ -154,7 +154,7 @@ fn ensure_engine(app: &tauri::AppHandle, state: &EngineState) -> Result<(), Stri
     let app_handle = app.clone();
     thread::spawn(move || {
         for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-            let _ = app_handle.emit("engine-stderr", line);
+            let _ = app_handle.emit("engine-event", serde_json::json!({ "type": "engine_stderr", "error": line }));
         }
     });
 
