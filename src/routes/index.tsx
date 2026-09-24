@@ -309,8 +309,8 @@ function ChupacabraDashboard() {
         </header>
 
         <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
-          {view === "dashboard" && <DashboardView scanState={scanState} setScanState={setScanState} startScan={startScan} onPause={handlePause} onResume={handleResume} onCancel={handleCancel} profile={profile} setProfile={setProfile} progress={progress} leadCount={leadCount} logs={logs} />}
-          {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} selectedCategoryIds={selectedCategoryIds} setSelectedCategoryIds={setSelectedCategoryIds} customCategories={customCategories} setCustomCategories={setCustomCategories} maxJobs={maxJobs} setMaxJobs={setMaxJobs} />}
+          {view === "dashboard" && <DashboardView scanState={scanState} setScanState={setScanState} startScan={startScan} onPause={handlePause} onResume={handleResume} onCancel={handleCancel} profile={profile} setProfile={setProfile} progress={progress} leadCount={leadCount} logs={logs} targetCount={targets.length} categoryCount={[...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} plannedJobs={targets.length * [...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} />}
+          {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} selectedCategoryIds={selectedCategoryIds} setSelectedCategoryIds={setSelectedCategoryIds} customCategories={customCategories} setCustomCategories={setCustomCategories} maxJobs={maxJobs} setMaxJobs={setMaxJobs} startScan={startScan} goToDashboard={() => setView("dashboard")} />}
           {view === "leads" && <LeadsView />}
           {view === "outreach" && <OutreachView />}
           {view === "reports" && <ReportsView />}
@@ -352,11 +352,11 @@ function PageIntro({ eyebrow, title, description, action }: { eyebrow: string; t
   return <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4"><div className="min-w-0"><p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-primary">{eyebrow}</p><h2 className="font-display text-2xl font-bold tracking-wide sm:text-3xl">{title}</h2><p className="mt-2 max-w-2xl text-sm text-muted-foreground">{description}</p></div>{action && <div className="shrink-0">{action}</div>}</div>;
 }
 
-function DashboardView({ scanState, setScanState, startScan, onPause, onResume, onCancel, profile, setProfile, progress, leadCount, logs }: { scanState: ScanState; setScanState: (s: ScanState) => void; startScan: () => void; onPause: () => void; onResume: () => void; onCancel: () => void; profile: EngineProfile; setProfile: (p: EngineProfile) => void; progress: number; leadCount: number; logs: string[] }) {
+function DashboardView({ scanState, setScanState, startScan, onPause, onResume, onCancel, profile, setProfile, progress, leadCount, logs, targetCount, categoryCount, plannedJobs }: { scanState: ScanState; setScanState: (s: ScanState) => void; startScan: () => void; onPause: () => void; onResume: () => void; onCancel: () => void; profile: EngineProfile; setProfile: (p: EngineProfile) => void; progress: number; leadCount: number; logs: string[]; targetCount: number; categoryCount: number; plannedJobs: number }) {
   const metrics = [
     { label: "Leads coletados", value: leadCount.toLocaleString("pt-BR"), delta: "+12.4%", icon: Users },
-    { label: "Cidades configuradas", value: "12", delta: "4 estados", icon: MapPin },
-    { label: "Nichos ativos", value: "08", delta: "de 12 totais", icon: Target },
+    { label: "Cidades configuradas", value: targetCount.toLocaleString("pt-BR"), delta: "na matriz atual", icon: MapPin },
+    { label: "Nichos ativos", value: categoryCount.toLocaleString("pt-BR"), delta: `${plannedJobs.toLocaleString("pt-BR")} jobs`, icon: Target },
     { label: "Motor de extração", value: scanState === "running" ? "Executando" : scanState === "paused" ? "Pausado" : "Inativo", delta: scanState === "paused" ? "retoma em 02:14" : "timer estocástico", icon: Radio },
   ];
   return <>
@@ -365,7 +365,7 @@ function DashboardView({ scanState, setScanState, startScan, onPause, onResume, 
 
     <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
       <div className="panel overflow-hidden">
-        <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-display text-lg font-semibold">Operação de varredura</p><p className="mt-1 text-xs text-muted-foreground">Execução real via engine · alvo atual: Chapeco / Agências de publicidade</p></div><div className="flex flex-wrap gap-2"><div className="flex items-center border border-border bg-surface p-1">{([["rapido","Rápido"],["balanceado","Balanceado"],["chupacabra","Chupacabra"]] as Array<[EngineProfile,string]>).map(([item,label])=><button key={item} onClick={()=>setProfile(item)} className={cn("px-2.5 py-1.5 font-mono text-[9px] uppercase transition-colors", profile===item ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground")}>{label}</button>)}</div>{scanState === "running" && <><Button variant="outline" onClick={onPause}><Pause /> Pausar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}{scanState === "paused" && <><Button variant="outline" onClick={onResume}><Play /> Retomar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}<Button size="lg" onClick={startScan} className="scan-button"><Zap />{scanState === "running" ? "Nova varredura" : "Iniciar varredura"}</Button></div></div>
+        <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-display text-lg font-semibold">Operação de varredura</p><p className="mt-1 text-xs text-muted-foreground">Execução real via engine · matriz atual: {targetCount} localidades × {categoryCount} nichos</p></div><div className="flex flex-wrap gap-2"><div className="flex items-center border border-border bg-surface p-1">{([["rapido","Rápido"],["balanceado","Balanceado"],["chupacabra","Chupacabra"]] as Array<[EngineProfile,string]>).map(([item,label])=><button key={item} onClick={()=>setProfile(item)} className={cn("px-2.5 py-1.5 font-mono text-[9px] uppercase transition-colors", profile===item ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground")}>{label}</button>)}</div>{scanState === "running" && <><Button variant="outline" onClick={onPause}><Pause /> Pausar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}{scanState === "paused" && <><Button variant="outline" onClick={onResume}><Play /> Retomar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}<Button size="lg" onClick={startScan} className="scan-button"><Zap />{scanState === "running" ? "Nova varredura" : "Iniciar varredura"}</Button></div></div>
         <div className="grid gap-6 p-5 md:grid-cols-[minmax(0,1fr)_220px]">
           <div><div className="mb-2 flex justify-between text-xs"><span className="text-muted-foreground">Progresso do ciclo</span><span className="font-mono text-primary">{Math.round(progress)}%</span></div><div className="h-2 overflow-hidden bg-muted"><div className="h-full bg-primary transition-all duration-700 shadow-glow" style={{ width: `${progress}%` }} /></div><div className="mt-5 grid grid-cols-3 gap-3">{[["Consultas", "1.248"], ["Válidos", "386"], ["Taxa", "30,9%"]].map(([a,b]) => <div key={a} className="border-l border-border pl-3"><p className="font-mono text-[9px] uppercase text-muted-foreground">{a}</p><p className="mt-1 text-sm font-semibold">{b}</p></div>)}</div></div>
           <div className="border border-border bg-surface p-4"><div className="flex items-center gap-2 text-xs font-medium"><Clock3 className="size-4 text-info" /> Timer estocástico</div><p className="mt-3 font-mono text-2xl font-bold">04.8<span className="text-xs text-muted-foreground">s</span></p><p className="mt-1 text-[10px] text-muted-foreground">Perfil {profile} · cadência controlada pelo engine</p></div>
@@ -388,6 +388,8 @@ function TargetsView({
   setCustomCategories,
   maxJobs,
   setMaxJobs,
+  startScan,
+  goToDashboard,
 }: {
   targets: TargetLocation[];
   setTargets: (targets: TargetLocation[]) => void;
@@ -398,6 +400,8 @@ function TargetsView({
   setCustomCategories: (categories: Array<[string, string]>) => void;
   maxJobs: number;
   setMaxJobs: (value: number) => void;
+  startScan: () => void;
+  goToDashboard: () => void;
 }) {
   const [mode, setMode] = useState<"br" | "world">("br");
   const [stateCode, setStateCode] = useState("");
@@ -685,6 +689,14 @@ function TargetsView({
 
       {overLimit && <p className="mt-4 border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">A campanha ultrapassa o limite. O engine também bloqueia matrizes acima de 10.000 jobs.</p>}
 
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+        <p className="text-xs text-muted-foreground">{targets.length} localidades × {activeCategories.length} nichos = <span className="font-mono text-primary">{plannedJobs.toLocaleString("pt-BR")} jobs</span></p>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={goToDashboard}>Voltar ao painel</Button>
+          <Button onClick={startScan} disabled={!targets.length || !activeCategories.length || overLimit}><Zap /> Iniciar varredura</Button>
+        </div>
+      </div>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {targets.map((target) => (
