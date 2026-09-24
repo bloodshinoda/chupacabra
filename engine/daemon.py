@@ -138,6 +138,7 @@ class EngineDaemon:
             raise ValueError(f"unknown command: {command}")
 
     def serve(self) -> None:
+        self._emit_payload({"type": "engine_ready", "status": "ready"})
         for line in sys.stdin:
             line = line.strip()
             if not line:
