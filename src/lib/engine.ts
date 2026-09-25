@@ -64,6 +64,12 @@ export type EngineEvent = {
     error?: string | null;
   };
   error?: string;
+  message?: string;
+  query?: string;
+  query_count?: number;
+  concurrency?: number;
+  limit?: number;
+  results?: number;
 };
 
 export function isTauriRuntime(): boolean {
