@@ -90,7 +90,7 @@ def _extract_place(result, query):
     return obj
 
 
-async def _get_search_url(session, query, lang, country):
+async def _get_search_url(session, query, lang, country, progress=None):
     """
     Step 1: GET /maps/search/{query} and extract the canonical pb= search URL
     from the <link> tag in the Maps SPA page.
@@ -98,6 +98,8 @@ async def _get_search_url(session, query, lang, country):
     Called once per query; the returned URL is reused across all paginated pages.
     """
     encoded_query = quote(query)
+    if progress:
+        progress("Resolvendo página de pesquisa do Google Maps.", query=query)
     maps_url = f'https://www.google.com/maps/search/{encoded_query}?hl={lang}&gl={country}'
 
     try:
@@ -125,7 +127,7 @@ async def _get_search_url(session, query, lang, country):
     return search_url
 
 
-async def _fetch_results_page(session, search_url, query, start=0):
+async def _fetch_results_page(session, search_url, query, start=0, progress=None):
     """
     Step 2: Fetch one page of tbm=map results.
     Appends &start=N to the base search URL for pages beyond the first.
@@ -194,7 +196,7 @@ async def _fetch_results_page(session, search_url, query, start=0):
     return places, False
 
 
-async def search_async(query, lang, country, limit, semaphore):
+async def search_async(query, lang, country, limit, semaphore, progress=None):
     """Async search with semaphore-based rate limiting and multi-page pagination."""
     result = []
     pbar = tqdm(desc=f"Scraping '{query[:30]}'", unit='results', leave=False)
@@ -204,7 +206,9 @@ async def search_async(query, lang, country, limit, semaphore):
             connector = aiohttp.TCPConnector(ssl=True)
             async with aiohttp.ClientSession(connector=connector) as session:
                 # Step 1: resolve the pb= search URL once for all pages
-                search_url = await _get_search_url(session, query, lang, country)
+                search_url = await _get_search_url(session, query, lang, country, progress)
+                if progress:
+                    progress("URL de pesquisa resolvida; iniciando paginação.", query=query)
                 if not search_url:
                     logger.warning(f'[{query}] Could not obtain search URL.')
                     pbar.set_postfix({'status': 'no-url'})
@@ -216,7 +220,9 @@ async def search_async(query, lang, country, limit, semaphore):
                 start = 0
                 max_retries = 3
                 while True:
-                    places, blocked = await _fetch_results_page(session, search_url, query, start)
+                    if progress:
+                        progress("Consultando página de resultados.", query=query, start=start, collected=len(result))
+                    places, blocked = await _fetch_results_page(session, search_url, query, start, progress)
 
                     if not places and blocked:
                         # Looks like a soft block / rate-limit rather than a
@@ -231,12 +237,15 @@ async def search_async(query, lang, country, limit, semaphore):
                                 f'retry {retry}/{max_retries} in {wait}s.'
                             )
                             await asyncio.sleep(wait)
-                            places, blocked = await _fetch_results_page(session, search_url, query, start)
+                            places, blocked = await _fetch_results_page(session, search_url, query, start, progress)
 
                     if not places:
                         # Empty page after retries means no more results available
                         logger.debug(f'[{query}] Empty page at start={start}, stopping.')
                         break
+
+                    if progress:
+                        progress("Página processada.", query=query, start=start, page_results=len(places), collected=len(result) + len(places))
 
                     # Be polite between successful pages too, to avoid
                     # triggering a block on the next request.
@@ -263,10 +272,10 @@ async def search_async(query, lang, country, limit, semaphore):
     return result
 
 
-async def search_multiple_async(queries, lang, country, limit, max_concurrent=3):
+async def search_multiple_async(queries, lang, country, limit, max_concurrent=3, progress=None):
     """Search multiple queries concurrently with rate limiting."""
     semaphore = asyncio.Semaphore(max_concurrent)
-    tasks = [search_async(query, lang, country, limit, semaphore) for query in queries]
+    tasks = [search_async(query, lang, country, limit, semaphore, progress) for query in queries]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     all_results = []
@@ -284,9 +293,9 @@ def search(query, lang, country, limit):
     return asyncio.run(search_async(query, lang, country, limit, asyncio.Semaphore(1)))
 
 
-def search_multiple(queries, lang, country, limit, max_concurrent=3):
+def search_multiple(queries, lang, country, limit, max_concurrent=3, progress=None):
     """Synchronous wrapper for multiple queries."""
-    return asyncio.run(search_multiple_async(queries, lang, country, limit, max_concurrent))
+    return asyncio.run(search_multiple_async(queries, lang, country, limit, max_concurrent, progress))
 
 
 def save_to_csv(data, filename='data/output.csv'):
