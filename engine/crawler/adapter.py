@@ -59,7 +59,12 @@ class CrawlerAdapter:
             concurrency=max_concurrent,
         )
         results: list[dict[str, Any]] = crawler.search_multiple(
-            queries, lang, country, limit, max_concurrent
+            queries,
+            lang,
+            country,
+            limit,
+            max_concurrent,
+            progress=progress,
         )
         report("Crawler finalizado.", results=len(results))
         crawler.save_to_csv(results, str(destination))
