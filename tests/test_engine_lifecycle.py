@@ -18,11 +18,24 @@ class FakeCrawler:
         self.fail = fail
         self.cancel_runner = cancel_runner
 
-    def scrape(self, queries, *, lang, country, limit, max_concurrent, output_file):
+    def scrape(
+        self,
+        queries,
+        *,
+        lang,
+        country,
+        limit,
+        max_concurrent,
+        output_file,
+        progress=None,
+        **_kwargs,
+    ):
         if self.fail:
             raise RuntimeError("falha simulada do crawler")
         if self.cancel_runner is not None:
             self.cancel_runner.cancel()
+        if progress is not None:
+            progress("coleta simulada", results=1)
         path = Path(output_file)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", newline="", encoding="utf-8") as handle:
@@ -60,7 +73,7 @@ class EngineLifecycleTests(unittest.TestCase):
             run = runner.run([("teste", "Chapeco", "Agencia", "consulta")], profile="rapido")
 
             self.assertEqual(run.status.value, "failed")
-            self.assertEqual(run.failed_jobs, 1)
+            self.assertEqual(run.failed_jobs, sil1)
             self.assertIn("job_failed", events)
             self.assertIn("run_failed", events)
             self.assertNotIn("run_completed", events)
