@@ -34,9 +34,9 @@ A meta de distribuição atual é **Windows + instalador NSIS por máquina**, in
 - Deduplicação por `place_id`.
 - Retry com backoff.
 - Perfis de execução:
-  - `fast`
-  - `balanced`
-  - `aggressive`
+  - `rapido`
+  - `balanceado`
+  - `chupacabra`
 - Execução organizada em `runs/<run_id>/jobs/<job_id>/` durante o desenvolvimento.
 - Enriquecimento de leads com campos de telefone, site, domínio, avaliação, densidade de avaliações, score e segmento.
 - Daemon Python com protocolo JSON por stdin/stdout.
@@ -60,7 +60,7 @@ Isso separa o runtime instalado dos dados mutáveis produzidos pelas execuções
 
 O frontend de produção será servido pelo diretório `.output/public` gerado pelo TanStack/Nitro.
 
-A configuração de desenvolvimento usa `127.0.0.1:5173` com porta estrita. O ambiente de Codespaces/Lovable pode servir o frontend por outra URL/porta no navegador; isso não deve ser usado como referência para a execução nativa do Tauri em Windows.
+A configuração de desenvolvimento usa `127.0.0.1:5173` com porta estrita (necessária para o Tauri em Windows).
 
 ### P0.5 — Runtime Windows
 
@@ -102,9 +102,9 @@ O próximo trabalho de integração é substituir os dados simulados do dashboar
 
 | Perfil | Limite padrão | Sites | Concorrência web | Intervalo |
 |---|---:|---|---:|---:|
-| `fast` | 250 | não | 4 | 3–7 s |
-| `balanced` | 500 | sim | 8 | 8–16 s |
-| `aggressive` | 1000 | sim | 10 | 15–35 s |
+| `rapido` | 250 | não | 4 | 3–7 s |
+| `balanceado` | 500 | sim | 8 | 8–16 s |
+| `chupacabra` | 1000 | sim | 10 | 15–35 s |
 
 Os valores são parâmetros operacionais, não garantias de quantidade de resultados.
 
@@ -207,7 +207,7 @@ python -m engine.daemon
 ### Smoke test do engine
 
 ```bash
-python -m engine.main --profile fast --query "Agencias de publicidade em Chapeco SC"
+python -m engine.main --profile rapido --query "Agencias de publicidade em Chapeco SC"
 ```
 
 ### Validação Rust/Tauri
@@ -216,7 +216,7 @@ python -m engine.main --profile fast --query "Agencias de publicidade em Chapeco
 cargo check --manifest-path src-tauri/Cargo.toml
 ```
 
-O `npx tauri dev` deve ser executado em um ambiente desktop local com suporte gráfico. Codespaces pode servir o frontend pelo navegador, mas não representa uma janela nativa do Tauri.
+O `npx tauri dev` deve ser executado em um ambiente desktop local com suporte gráfico (Windows nativo).
 
 ## Build Windows
 
