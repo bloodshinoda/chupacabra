@@ -201,7 +201,17 @@ function ChupacabraDashboard() {
             break;
           case "job_started":
             setScanState("running");
+            setProgress(event.run?.total_jobs ? (event.run.completed_jobs / event.run.total_jobs) * 100 : 5);
             addLog(`Job iniciado · ${event.job?.id ?? "—"}.`);
+            break;
+          case "crawl_progress":
+            addLog(event.message ?? "Crawler em execução.");
+            break;
+          case "enrichment_started":
+            addLog(event.message ?? "Iniciando enriquecimento.");
+            break;
+          case "enrichment_completed":
+            addLog(event.message ?? "Enriquecimento concluído.");
             break;
           case "job_completed":
             setProgress(event.run?.total_jobs ? (event.run.completed_jobs / event.run.total_jobs) * 100 : 100);
