@@ -1,13 +1,13 @@
-// @lovable.dev/vite-tanstack-config já inclui o seguinte — não adicionar manualmente
-// plugins duplicados, pois isso quebra o app.
-// A configuração abaixo mantém o TanStack Start em modo SPA para o desktop:
-// o Tauri precisa de um documento HTML estático, enquanto o engine roda via IPC.
+// O preset @lovable.dev/vite-tanstack-config já inclui plugins do TanStack Start.
+// Não adicionar plugins duplicados manualmente — isso quebra o app.
+// Configuração SPA: o Tauri precisa de HTML estático em frontendDist;
+// o engine Python roda via IPC, não via SSR.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
   tanstackStart: {
-    // O desktop não precisa de SSR. O shell estático vira index.html,
-    // exatamente o arquivo que o Tauri espera encontrar em frontendDist.
+    // Desktop não usa SSR. O shell estático vira index.html
+    // (arquivo que o Tauri espera em frontendDist).
     spa: {
       enabled: true,
       prerender: {
@@ -17,7 +17,7 @@ export default defineConfig({
       },
     },
 
-    // Mantém a entrada de servidor existente para o build web/Lovable.
+    // Entrada de servidor mantida para builds web opcionais.
     server: { entry: "server" },
   },
 });
