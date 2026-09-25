@@ -37,6 +37,7 @@ class CrawlerAdapter:
         limit: int | None,
         max_concurrent: int,
         output_file: str | Path,
+        progress: Any | None = None,
     ) -> CrawlResult:
         if not queries:
             raise ValueError("At least one search query is required")
@@ -47,9 +48,20 @@ class CrawlerAdapter:
 
         destination = Path(output_file)
         destination.parent.mkdir(parents=True, exist_ok=True)
+        def report(message: str, **details: Any) -> None:
+            if progress is not None:
+                progress(message, **details)
+
+        report("Preparando consulta no Google Maps.", query=queries[0], limit=limit)
+        report(
+            "Iniciando crawler MapScraper.",
+            query_count=len(queries),
+            concurrency=max_concurrent,
+        )
         results: list[dict[str, Any]] = crawler.search_multiple(
             queries, lang, country, limit, max_concurrent
         )
+        report("Crawler finalizado.", results=len(results))
         crawler.save_to_csv(results, str(destination))
 
         # The legacy saver intentionally skips file creation for zero results.
