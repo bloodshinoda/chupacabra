@@ -1,6 +1,7 @@
 """JSON-line daemon used by the Tauri bridge in the desktop application."""
 from __future__ import annotations
 
+import errno
 import json
 import sys
 import threading
@@ -26,11 +27,49 @@ class EngineDaemon:
         self._run_thread: threading.Thread | None = None
         self._catalog = IbgeBrazilCatalog()
         self._world_catalog = WorldCityCatalog()
+        self._stdout_lock = threading.Lock()
+        self._stdout_available = True
 
     @staticmethod
-    def _emit_payload(payload: dict) -> None:
-        sys.stdout.write(json.dumps(payload, ensure_ascii=False) + "\n")
-        sys.stdout.flush()
+    def _sanitize_surrogates(value):
+        if isinstance(value, str):
+            return value.encode("utf-8", errors="replace").decode("utf-8")
+        if isinstance(value, dict):
+            return {
+                EngineDaemon._sanitize_surrogates(key): EngineDaemon._sanitize_surrogates(item)
+                for key, item in value.items()
+            }
+        if isinstance(value, list):
+            return [EngineDaemon._sanitize_surrogates(item) for item in value]
+        if isinstance(value, tuple):
+            return [EngineDaemon._sanitize_surrogates(item) for item in value]
+        return value
+
+    def _emit_payload(self, payload: dict) -> None:
+        # O canal stdout é um protocolo entre o daemon e o Tauri. A perda
+        # desse pipe não pode derrubar a execução do crawler.
+        if not self._stdout_available:
+            return
+
+        safe_payload = self._sanitize_surrogates(payload)
+        line = json.dumps(safe_payload, ensure_ascii=False) + "\n"
+
+        with self._stdout_lock:
+            if not self._stdout_available:
+                return
+            try:
+                sys.stdout.write(line)
+                sys.stdout.flush()
+            except (BrokenPipeError, OSError) as exc:
+                # Windows pode reportar um pipe fechado como EINVAL (22).
+                if isinstance(exc, BrokenPipeError) or getattr(exc, "errno", None) in {
+                    errno.EPIPE,
+                    errno.EINVAL,
+                    errno.EBADF,
+                }:
+                    self._stdout_available = False
+                    return
+                raise
 
     def _emit_event(self, event) -> None:
         self._emit_payload(event.to_dict())
