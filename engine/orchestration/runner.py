@@ -177,11 +177,24 @@ class ProspectingRunner:
                 limit=profile.limit,
                 max_concurrent=profile.scraper_concurrency,
                 output_file=job.raw_file,
+                progress=lambda message, **details: self.events.emit(
+                    "crawl_progress",
+                    run=run.to_dict(),
+                    job=job.to_dict(),
+                    message=message,
+                    **details,
+                ),
             )
 
             sys.path.insert(0, str(self.crawler.mapscraper_root))
             from pipeline.orchestrator import run_pipeline
 
+            self.events.emit(
+                "enrichment_started",
+                run=run.to_dict(),
+                job=job.to_dict(),
+                message="Iniciando enriquecimento dos dados coletados.",
+            )
             run_pipeline(
                 mode="enrich",
                 input_path=job.raw_file,
@@ -196,6 +209,13 @@ class ProspectingRunner:
             if generated != enriched:
                 enriched.parent.mkdir(parents=True, exist_ok=True)
                 shutil.move(str(generated), str(enriched))
+            job.enriched_file = str(enriched)
+            self.events.emit(
+                "enrichment_completed",
+                run=run.to_dict(),
+                job=job.to_dict(),
+                message=f"Enriquecimento concluído · {result.count} resultados processados.",
+            )
             job.enriched_file = str(enriched)
             job.complete(result.count)
             run.recalculate()
