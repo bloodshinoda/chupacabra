@@ -73,7 +73,7 @@ class EngineLifecycleTests(unittest.TestCase):
             run = runner.run([("teste", "Chapeco", "Agencia", "consulta")], profile="rapido")
 
             self.assertEqual(run.status.value, "failed")
-            self.assertEqual(run.failed_jobs, sil1)
+            self.assertEqual(run.failed_jobs, 1)
             self.assertIn("job_failed", events)
             self.assertIn("run_failed", events)
             self.assertNotIn("run_completed", events)
