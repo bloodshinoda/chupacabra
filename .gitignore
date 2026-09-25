@@ -5,7 +5,15 @@ __pycache__/
 .venv/
 venv/
 .env
+
+# Dados de execução e leads (telefones, endereços, empresas)
 runs/
+mapScraper/data/
+mapScraper/*.xlsx
+mapScraper/relatorio_*.xlsx
+mapScraper/logs/
+
+# Build artifacts
 engine/build/
 engine/dist/
 .output/
