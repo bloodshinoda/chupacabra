@@ -199,7 +199,7 @@ async def _fetch_results_page(session, search_url, query, start=0, progress=None
 async def search_async(query, lang, country, limit, semaphore, progress=None):
     """Async search with semaphore-based rate limiting and multi-page pagination."""
     result = []
-    pbar = tqdm(desc=f"Scraping '{query[:30]}'", unit='results', leave=False)
+    pbar = None if progress is not None else tqdm(desc=f"Scraping '{query[:30]}'", unit='results', leave=False)
 
     async with semaphore:
         try:
@@ -265,7 +265,8 @@ async def search_async(query, lang, country, limit, semaphore, progress=None):
 
         except Exception as e:
             logger.error(f'[{query}] Unhandled exception: {e}')
-            pbar.set_postfix({'Error': str(e)[:30]})
+            if pbar:
+                pbar.set_postfix({'Error': str(e)[:30]})
 
     pbar.close()
     logger.info(f'[{query}] Done — {len(result)} result(s)')
