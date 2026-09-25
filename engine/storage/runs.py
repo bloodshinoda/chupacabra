@@ -17,11 +17,28 @@ class RunStore:
         return self.run_dir(run_id) / "jobs" / job_id
 
     @staticmethod
+    def _sanitize_surrogates(value: Any) -> Any:
+        """Remove isolated UTF-16 surrogate code points before UTF-8 serialization."""
+        if isinstance(value, str):
+            return value.encode("utf-8", errors="replace").decode("utf-8")
+        if isinstance(value, dict):
+            return {
+                RunStore._sanitize_surrogates(key): RunStore._sanitize_surrogates(item)
+                for key, item in value.items()
+            }
+        if isinstance(value, list):
+            return [RunStore._sanitize_surrogates(item) for item in value]
+        if isinstance(value, tuple):
+            return tuple(RunStore._sanitize_surrogates(item) for item in value)
+        return value
+
+    @staticmethod
     def _write_json(path: Path, value: dict[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.with_suffix(path.suffix + ".tmp")
+        safe_value = RunStore._sanitize_surrogates(value)
         temporary.write_text(
-            json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8"
+            json.dumps(safe_value, ensure_ascii=False, indent=2), encoding="utf-8"
         )
         temporary.replace(path)
 
