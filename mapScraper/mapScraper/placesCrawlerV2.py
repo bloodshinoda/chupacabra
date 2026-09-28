@@ -211,8 +211,9 @@ async def search_async(query, lang, country, limit, semaphore, progress=None):
                     progress("URL de pesquisa resolvida; iniciando paginação.", query=query)
                 if not search_url:
                     logger.warning(f'[{query}] Could not obtain search URL.')
-                    pbar.set_postfix({'status': 'no-url'})
-                    pbar.close()
+                    if pbar:
+                        pbar.set_postfix({'status': 'no-url'})
+                        pbar.close()
                     return result
 
                 # Step 2: paginate — each page adds ~20 results via &start=N
@@ -253,8 +254,9 @@ async def search_async(query, lang, country, limit, semaphore, progress=None):
 
                     for place in places:
                         result.append(place)
-                        pbar.update(1)
-                        pbar.set_postfix({'Total': len(result)})
+                        if pbar:
+                            pbar.update(1)
+                            pbar.set_postfix({'Total': len(result)})
                         if limit and len(result) >= limit:
                             break
 
@@ -268,7 +270,8 @@ async def search_async(query, lang, country, limit, semaphore, progress=None):
             if pbar:
                 pbar.set_postfix({'Error': str(e)[:30]})
 
-    pbar.close()
+    if pbar:
+        pbar.close()
     logger.info(f'[{query}] Done — {len(result)} result(s)')
     return result
 
