@@ -31,6 +31,28 @@ class EngineDaemon:
         self._stdout_available = True
 
     @staticmethod
+    def _repair_mojibake(value):
+        """Repair common UTF-8-as-Windows-1252 corruption at the protocol boundary."""
+        if isinstance(value, str):
+            if not any(marker in value for marker in ("Ã", "Â", "â€", "â€™", "â€œ", "â€�", "â€“", "â€”")):
+                return value
+            try:
+                repaired = value.encode("cp1252").decode("utf-8")
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                return value
+            return repaired if repaired != value else value
+        if isinstance(value, dict):
+            return {
+                EngineDaemon._repair_mojibake(key): EngineDaemon._repair_mojibake(item)
+                for key, item in value.items()
+            }
+        if isinstance(value, list):
+            return [EngineDaemon._repair_mojibake(item) for item in value]
+        if isinstance(value, tuple):
+            return [EngineDaemon._repair_mojibake(item) for item in value]
+        return value
+
+    @staticmethod
     def _sanitize_surrogates(value):
         if isinstance(value, str):
             return value.encode("utf-8", errors="replace").decode("utf-8")
@@ -183,10 +205,13 @@ class EngineDaemon:
             if not line:
                 continue
             try:
-                self._dispatch(json.loads(line))
+                self._dispatch(self._repair_mojibake(json.loads(line)))
             except Exception as exc:
                 self._emit_payload({"type": "engine_error", "error": str(exc)})
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdin, sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="strict")
     EngineDaemon().serve()
