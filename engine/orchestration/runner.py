@@ -10,6 +10,8 @@ import sys
 import threading
 import time
 from typing import Iterable
+
+import pandas as pd
 from uuid import uuid4
 
 from engine.crawler import CrawlerAdapter
@@ -88,6 +90,7 @@ class ProspectingRunner:
                 city=city,
                 category=category,
                 query=query,
+                category_slug=_slug,
             )
             for index, (_slug, city, category, query) in enumerate(job_specs, start=1)
         ]
@@ -129,6 +132,9 @@ class ProspectingRunner:
                 run.fail()
             else:
                 run.complete()
+
+            if run.completed_jobs > 0:
+                self._build_report(run)
         except Exception as exc:
             logger.exception("Prospecting run failed")
             run.fail()
@@ -228,6 +234,60 @@ class ProspectingRunner:
             root_logger.removeHandler(handler)
             handler.close()
             self.store.save_job(run.id, job)
+
+    def _build_report(self, run: ProspectingRun) -> None:
+        """Consolidate completed enriched jobs into the original XLSX report."""
+        completed = [job for job in run.jobs if job.status is JobStatus.COMPLETED and job.enriched_file]
+        if not completed:
+            return
+
+        report_path = self.store.report_path(run.id)
+        report_input = self.store.run_dir(run.id) / "_report_input"
+        report_input.mkdir(parents=True, exist_ok=True)
+
+        self.events.emit(
+            "report_started",
+            run=run.to_dict(),
+            message="Consolidando os dados enriquecidos e gerando o relatório final.",
+        )
+
+        try:
+            files_by_slug: dict[str, str] = {}
+            for job in completed:
+                slug = job.category_slug or job.category
+                target = report_input / f"{slug}.csv"
+                source = Path(job.enriched_file)
+                if not source.exists():
+                    raise FileNotFoundError(f"Arquivo enriquecido não encontrado: {source}")
+
+                frame = pd.read_csv(source, dtype=str)
+                if target.exists():
+                    existing = pd.read_csv(target, dtype=str)
+                    frame = pd.concat([existing, frame], ignore_index=True)
+                frame.to_csv(target, index=False)
+                files_by_slug[slug] = str(target)
+
+            sys.path.insert(0, str(self.crawler.mapscraper_root))
+            from gerar_relatorio import build_workbook
+
+            build_workbook(files_by_slug, str(report_path))
+            run.report_file = str(report_path)
+            self.events.emit(
+                "report_completed",
+                run=run.to_dict(),
+                report_file=str(report_path),
+                message="Relatório final gerado com sucesso.",
+            )
+        except Exception as exc:
+            self.events.emit(
+                "report_failed",
+                run=run.to_dict(),
+                report_file=str(report_path),
+                error=str(exc),
+            )
+            raise
+        finally:
+            shutil.rmtree(report_input, ignore_errors=True)
 
     def _delay_between_jobs(self, profile: RunProfile) -> None:
         delay = random.uniform(profile.delay_min, profile.delay_max)
