@@ -124,6 +124,8 @@ class EngineLifecycleTests(unittest.TestCase):
             self.assertEqual(enriched.name, "enriched.csv")
             self.assertTrue(enriched.exists())
             self.assertFalse(enriched.with_name("raw_enriched.csv").exists())
+            self.assertEqual(run.report_file, str(Path(tmp) / run.id / "report.xlsx"))
+            self.assertTrue(Path(run.report_file).exists())
 
 
 if __name__ == "__main__":
