@@ -24,6 +24,7 @@ class SearchJob:
     city: str
     category: str
     query: str
+    category_slug: str = ""
     status: JobStatus = JobStatus.PENDING
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
