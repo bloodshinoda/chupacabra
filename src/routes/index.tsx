@@ -262,13 +262,13 @@ function ChupacabraDashboard() {
     };
   }, []);
 
-  const startScan = async () => {
+  const startScan = async (): Promise<boolean> => {
     setLogs((current) => [...current, `[${new Date().toLocaleTimeString("pt-BR")}] Iniciando varredura com perfil ${profile}.`]);
     setProgress(5);
 
     if (!isTauriRuntime()) {
       setLogs((current) => [...current, `[${new Date().toLocaleTimeString("pt-BR")}] Abra o aplicativo Tauri para executar o engine.`]);
-      return;
+      return false;
     }
 
     try {
@@ -281,9 +281,11 @@ function ChupacabraDashboard() {
       const allCategories = [...categories, ...customCategories];
       await startRun({ profile, targets, categories: allCategories.filter(([id]) => selectedCategoryIds.includes(id)), max_jobs: maxJobs });
       setScanState("running");
+      return true;
     } catch (error) {
       setScanState("idle");
       addEngineLog(setLogs, `Falha ao iniciar engine · ${error instanceof Error ? error.message : String(error)}`);
+      return false;
     }
   };
 
@@ -333,7 +335,7 @@ function ChupacabraDashboard() {
 
         <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
           {view === "dashboard" && <DashboardView scanState={scanState} setScanState={setScanState} startScan={startScan} onPause={handlePause} onResume={handleResume} onCancel={handleCancel} profile={profile} setProfile={setProfile} progress={progress} leadCount={leadCount} logs={logs} targetCount={targets.length} categoryCount={[...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} plannedJobs={targets.length * [...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} />}
-          {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} selectedCategoryIds={selectedCategoryIds} setSelectedCategoryIds={setSelectedCategoryIds} customCategories={customCategories} setCustomCategories={setCustomCategories} maxJobs={maxJobs} setMaxJobs={setMaxJobs} startScan={startScan} goToDashboard={() => setView("dashboard")} />}
+          {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} selectedCategoryIds={selectedCategoryIds} setSelectedCategoryIds={setSelectedCategoryIds} customCategories={customCategories} setCustomCategories={setCustomCategories} maxJobs={maxJobs} setMaxJobs={setMaxJobs} startScan={async () => { const started = await startScan(); if (started) setView("dashboard"); }} goToDashboard={() => setView("dashboard")} />}
           {view === "leads" && <LeadsView />}
           {view === "outreach" && <OutreachView />}
           {view === "reports" && <ReportsView />}
