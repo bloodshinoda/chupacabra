@@ -46,6 +46,15 @@ class FakeCrawler:
 
 
 class EngineLifecycleTests(unittest.TestCase):
+    def test_daemon_repara_mojibake_no_limite_do_protocolo(self) -> None:
+        from engine.daemon import EngineDaemon
+
+        payload = {"query": "GrÃ¡ficas em Angelina SC", "nested": ["SÃ£o Paulo", "AÃ§ores"]}
+        repaired = EngineDaemon._repair_mojibake(payload)
+
+        self.assertEqual(repaired["query"], "Gráficas em Angelina SC")
+        self.assertEqual(repaired["nested"], ["São Paulo", "Açores"])
+
     def _install_fake_pipeline(self) -> None:
         package = types.ModuleType("pipeline")
         module = types.ModuleType("pipeline.orchestrator")
