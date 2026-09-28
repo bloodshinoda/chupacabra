@@ -50,6 +50,8 @@ python -m PyInstaller `
     --hidden-import enrichment.scoring `
     --hidden-import enrichment.web_scraper `
     --hidden-import mapScraper.placesCrawlerV2 `
+    --hidden-import gerar_relatorio `
+    --hidden-import openpyxl `
     --collect-all aiohttp `
     --collect-all pandas `
     $EngineSource
