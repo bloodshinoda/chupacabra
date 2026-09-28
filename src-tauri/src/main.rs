@@ -108,6 +108,8 @@ fn ensure_engine(app: &tauri::AppHandle, state: &EngineState) -> Result<(), Stri
             .args(["-m", "engine.daemon"]);
     }
 
+    command.env("PYTHONUTF8", "1");
+    command.env("PYTHONIOENCODING", "utf-8");
     hide_console_window(&mut command);
     let mut child = command
         .stdin(Stdio::piped())
