@@ -58,6 +58,7 @@ export type EngineEvent = {
   job?: {
     id: string;
     status: string;
+    category_slug?: string;
     results_count: number;
     raw_file?: string | null;
     enriched_file?: string | null;
