@@ -30,6 +30,7 @@ class ProspectingRun:
     jobs: list[SearchJob] = field(default_factory=list)
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
+    report_file: Optional[str] = None
 
     def start(self) -> None:
         self.status = RunStatus.RUNNING
