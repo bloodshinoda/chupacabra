@@ -70,6 +70,17 @@ class EngineLifecycleTests(unittest.TestCase):
         sys.modules["pipeline"] = package
         sys.modules["pipeline.orchestrator"] = module
 
+        report_module = types.ModuleType("gerar_relatorio")
+
+        def build_workbook(files_by_slug, out_path):
+            output = Path(out_path)
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_bytes(b"fake-xlsx")
+            return str(output), list(files_by_slug.items())
+
+        report_module.build_workbook = build_workbook
+        sys.modules["gerar_relatorio"] = report_module
+
     def test_falha_de_job_falha_a_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             runner = ProspectingRunner(
