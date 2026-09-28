@@ -2,7 +2,7 @@
 
 **B2B Prospect Engine** para pesquisa de empresas por cidade e nicho, com crawler assíncrono, enriquecimento de leads, execução controlada por perfis e interface desktop baseada em Tauri.
 
-> Projeto em desenvolvimento. O frontend atual foi originalmente feito com TanStack Start e está sendo integrado ao engine Python legado que rodava via CLI.
+> **Versão 0.3.0 — primeira versão empacotável do desktop.** O frontend TanStack/Tauri já está integrado ao engine Python legado, com execução real, matriz de alvos, enriquecimento e geração do relatório final.
 
 ## Objetivo
 
@@ -40,7 +40,9 @@ A meta de distribuição atual é **Windows + instalador NSIS por máquina**, in
 - Execução organizada em `runs/<run_id>/jobs/<job_id>/` durante o desenvolvimento.
 - Enriquecimento de leads com campos de telefone, site, domínio, avaliação, densidade de avaliações, score e segmento.
 - Daemon Python com protocolo JSON por stdin/stdout.
-- Eventos de ciclo de vida: início, jobs, progresso, conclusão, falha, cancelamento e logs.
+- Eventos de ciclo de vida: início, jobs, progresso, conclusão, falha, cancelamento, logs e relatório final.
+- Protocolo do daemon protegido contra problemas comuns de UTF-8/mojibake entre Python, Rust e Windows.
+- Geração do relatório final XLSX após o enriquecimento dos jobs concluídos.
 
 ### Tauri
 
@@ -62,7 +64,7 @@ O frontend de produção será servido pelo diretório `.output/public` gerado p
 
 A configuração de desenvolvimento usa `127.0.0.1:5173` com porta estrita (necessária para o Tauri em Windows).
 
-### P0.5 — Runtime Windows
+### P0.5 — Runtime Windows / Distribuição 0.3.0
 
 O P0.5 estabelece a primeira cadeia de distribuição do engine:
 
@@ -122,9 +124,9 @@ A matriz será controlada pela aplicação, eliminando a necessidade de executar
 
 ## Relatórios
 
-A arquitetura de relatórios será orientada por **cidade**, sem perder a visão consolidada.
+A geração do relatório final já está integrada ao ciclo da execução. Após a coleta e o enriquecimento dos jobs concluídos, o engine consolida os CSVs e gera o XLSX da execução.
 
-Cada execução deverá poder produzir:
+Os dados intermediários ficam associados à execução e podem ser usados para regenerar ou evoluir os relatórios. A estrutura de distribuição planejada por cidade permanece:
 
 ```text
 Reports/
@@ -276,14 +278,14 @@ chupacabra/
 
 ## Próximos marcos
 
-1. Integrar o dashboard aos eventos reais do engine.
+1. Integrar completamente o dashboard aos eventos reais do engine.
 2. Integrar a matriz de cidades/nichos ao runner.
-3. Implementar pausa, retomada e cancelamento pela interface.
-4. Implementar armazenamento em diretórios padrão do Windows.
-5. Implementar relatório consolidado + relatórios individuais por cidade.
+3. Refinar pausa, retomada e cancelamento pela interface.
+4. Consolidar o armazenamento nos diretórios padrão do Windows.
+5. Evoluir o relatório consolidado e relatórios individuais por cidade.
 6. Implementar tela de histórico das execuções.
 7. Validar o engine PyInstaller em Windows limpo.
-8. Gerar e testar o instalador NSIS `perMachine` em Windows limpo.
+8. Validar o instalador NSIS `perMachine` em Windows limpo e ampliar a matriz de testes.
 9. Assinar o executável/instalador para distribuição.
 
 ## Plataformas
