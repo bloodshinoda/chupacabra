@@ -53,6 +53,7 @@ export type EngineEvent = {
     total_jobs: number;
     completed_jobs: number;
     failed_jobs: number;
+    report_file?: string | null;
   };
   job?: {
     id: string;
