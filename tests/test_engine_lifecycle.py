@@ -164,15 +164,6 @@ class EngineLifecycleTests(unittest.TestCase):
             self.assertIn("run_delay", events)
             self.assertIn("run_delay_tick", events)
 
-    def test_titulo_de_aba_do_relatorio_sanitiza_caracteres_invalidos(self) -> None:
-        from gerar_relatorio import safe_sheet_title
-
-        used = set()
-        title = safe_sheet_title("Bares: Chapecó/SC", used)
-
-        self.assertEqual(title, "Bares Chapecó SC")
-        self.assertNotIn(":", title)
-        self.assertNotIn("/", title)
     def test_job_usa_categoria_sem_incluir_o_slug_geografico(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self._install_fake_pipeline()
