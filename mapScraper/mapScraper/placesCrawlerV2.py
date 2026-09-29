@@ -303,10 +303,14 @@ def search_multiple(queries, lang, country, limit, max_concurrent=3, progress=No
 
 
 def save_to_csv(data, filename='data/output.csv'):
-    """Save place data to CSV file."""
+    """Save place data to CSV and return collection/deduplication statistics."""
     if not data:
         print('No data to save.')
-        return
+        return {
+            'collected_count': 0,
+            'unique_count': 0,
+            'duplicates_removed': 0,
+        }
 
     column_order = [
         'id', 'url_place', 'title', 'category', 'address',
@@ -328,7 +332,9 @@ def save_to_csv(data, filename='data/output.csv'):
         seen_ids.add(rid)
         deduped.append(record)
 
-    removed = len(data) - len(deduped)
+    collected_count = len(data)
+    unique_count = len(deduped)
+    removed = collected_count - unique_count
     if removed:
         print(f'Removed {removed} duplicate(s) by id.')
 
@@ -340,3 +346,9 @@ def save_to_csv(data, filename='data/output.csv'):
         print(f'Data saved to {filename}')
     except Exception as e:
         print(f'Error saving data to {filename}: {e}')
+
+    return {
+        'collected_count': collected_count,
+        'unique_count': unique_count,
+        'duplicates_removed': removed,
+    }
