@@ -384,7 +384,7 @@ function Sidebar({ view, setView, open, setOpen, scanState, engineOnline }: { vi
         <div className="mt-3 h-1 overflow-hidden bg-muted"><div className="h-full w-full bg-primary shadow-glow" /></div>
         <div className="mt-2 flex justify-between font-mono text-[9px] text-muted-foreground"><span>Processo IPC conectado</span></div>
       </div>
-      <div className="border-t border-border px-5 py-4 font-mono text-[9px] text-muted-foreground"><div className="flex justify-between"><span>BUILD</span><span className="text-primary">v0.2.0 DEV</span></div></div>
+      <div className="border-t border-border px-5 py-4 font-mono text-[9px] text-muted-foreground"><div className="flex justify-between"><span>BUILD</span><span className="text-primary">v0.3.0</span></div></div>
     </aside>
   </>;
 }
@@ -395,10 +395,10 @@ function PageIntro({ eyebrow, title, description, action }: { eyebrow: string; t
 
 function DashboardView({ scanState, setScanState, startScan, onPause, onResume, onCancel, profile, setProfile, progress, leadCount, queryCount, validCount, stochasticTimer, logs, targetCount, categoryCount, plannedJobs }: { scanState: ScanState; setScanState: (s: ScanState) => void; startScan: () => void; onPause: () => void; onResume: () => void; onCancel: () => void; profile: EngineProfile; setProfile: (p: EngineProfile) => void; progress: number; leadCount: number; queryCount: number; validCount: number; stochasticTimer: number; logs: string[]; targetCount: number; categoryCount: number; plannedJobs: number }) {
   const metrics = [
-    { label: "Leads coletados", value: leadCount.toLocaleString("pt-BR"), delta: "+12.4%", icon: Users },
+    { label: "Leads coletados", value: leadCount.toLocaleString("pt-BR"), delta: "na execução atual", icon: Users },
     { label: "Cidades configuradas", value: targetCount.toLocaleString("pt-BR"), delta: "na matriz atual", icon: MapPin },
     { label: "Nichos ativos", value: categoryCount.toLocaleString("pt-BR"), delta: `${plannedJobs.toLocaleString("pt-BR")} jobs`, icon: Target },
-    { label: "Motor de extração", value: scanState === "running" ? "Executando" : scanState === "paused" ? "Pausado" : "Inativo", delta: scanState === "paused" ? "retoma em 02:14" : "timer estocástico", icon: Radio },
+    { label: "Motor de extração", value: scanState === "running" ? "Executando" : scanState === "paused" ? "Pausado" : "Inativo", delta: scanState === "paused" ? "execução pausada" : "cadência do perfil", icon: Radio },
   ];
   return <>
     <PageIntro eyebrow="Central de inteligência" title="Painel de Controle" description="Monitore a operação, execute varreduras e acompanhe a coleta em tempo real." />
