@@ -90,7 +90,7 @@ class ProspectingRunner:
                 city=city,
                 category=category,
                 query=query,
-                category_slug=_slug,
+                category_slug=category,
             )
             for index, (_slug, city, category, query) in enumerate(job_specs, start=1)
         ]
@@ -291,9 +291,13 @@ class ProspectingRunner:
 
     def _delay_between_jobs(self, profile: RunProfile) -> None:
         delay = random.uniform(profile.delay_min, profile.delay_max)
+        self.events.emit("run_delay", delay=delay)
         deadline = time.monotonic() + delay
         while time.monotonic() < deadline:
             if self._cancel.is_set():
                 return
             self._resume_gate.wait()
-            time.sleep(min(0.5, max(0.0, deadline - time.monotonic())))
+            remaining = max(0.0, deadline - time.monotonic())
+            self.events.emit("run_delay_tick", remaining=remaining, delay=delay)
+            time.sleep(min(0.5, remaining))
+        self.events.emit("run_delay_tick", remaining=0.0, delay=delay)
