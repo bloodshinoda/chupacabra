@@ -254,8 +254,16 @@ class ProspectingRunner:
             run=run.to_dict(),
             message="Consolidando os dados enriquecidos e gerando o relatório final.",
         )
+        report_log = self.store.run_log_path(run.id)
+        report_log.parent.mkdir(parents=True, exist_ok=True)
+
+        def write_report_log(message: str) -> None:
+            with report_log.open("a", encoding="utf-8") as handle:
+                timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
+                handle.write(f"[{timestamp}] {message}\n")
 
         try:
+            write_report_log("Iniciando geração do relatório XLSX.")
             files_by_slug: dict[str, str] = {}
             for job in completed:
                 slug = job.category_slug or job.category
@@ -276,6 +284,8 @@ class ProspectingRunner:
 
             build_workbook(files_by_slug, str(report_path))
             run.report_file = str(report_path)
+            write_report_log(f"Relatório gerado com sucesso: {report_path}")
+
             self.events.emit(
                 "report_completed",
                 run=run.to_dict(),
@@ -283,6 +293,18 @@ class ProspectingRunner:
                 message="Relatório final gerado com sucesso.",
             )
         except Exception as exc:
+            logger.exception("Falha ao gerar relatório XLSX")
+            write_report_log(f"ERRO ao gerar relatório XLSX: {exc}")
+            import traceback
+
+            write_report_log(traceback.format_exc())
+            for job in completed:
+                if job.log_file:
+                    job_log = Path(job.log_file)
+                    job_log.parent.mkdir(parents=True, exist_ok=True)
+                    with job_log.open("a", encoding="utf-8") as handle:
+                        handle.write(f"\n[REPORT] Falha ao gerar XLSX: {exc}\n")
+                        handle.write(traceback.format_exc())
             self.events.emit(
                 "report_failed",
                 run=run.to_dict(),
