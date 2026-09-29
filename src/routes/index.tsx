@@ -214,9 +214,6 @@ function ChupacabraDashboard() {
             if (event.message === "Consultando página de resultados.") {
               setQueryCount((current) => current + 1);
             }
-            if (typeof event.collected === "number") {
-              setValidCount((current) => Math.max(current, event.collected));
-            }
             addLog(event.message ?? "Crawler em execução.");
             break;
           case "run_delay":
