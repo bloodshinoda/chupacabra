@@ -175,7 +175,13 @@ class ProspectingRunner:
         root_logger = logging.getLogger()
         root_logger.addHandler(handler)
 
+        def write_job_log(message: str) -> None:
+            with Path(job.log_file).open("a", encoding="utf-8") as handle:
+                timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
+                handle.write(f"[{timestamp}] {message}\n")
+
         try:
+            write_job_log(f"Job iniciado · consulta: {job.query}")
             result = self.crawler.scrape(
                 [job.query],
                 lang=lang,
@@ -183,18 +189,22 @@ class ProspectingRunner:
                 limit=profile.limit,
                 max_concurrent=profile.scraper_concurrency,
                 output_file=job.raw_file,
-                progress=lambda message, **details: self.events.emit(
-                    "crawl_progress",
-                    run=run.to_dict(),
-                    job=job.to_dict(),
-                    message=message,
-                    **details,
-                ),
+                progress=lambda message, **details: (
+                    write_job_log(message),
+                    self.events.emit(
+                        "crawl_progress",
+                        run=run.to_dict(),
+                        job=job.to_dict(),
+                        message=message,
+                        **details,
+                    ),
+                )[1],
             )
 
             sys.path.insert(0, str(self.crawler.mapscraper_root))
             from pipeline.orchestrator import run_pipeline
 
+            write_job_log("Iniciando enriquecimento dos dados coletados.")
             self.events.emit(
                 "enrichment_started",
                 run=run.to_dict(),
@@ -216,6 +226,7 @@ class ProspectingRunner:
                 enriched.parent.mkdir(parents=True, exist_ok=True)
                 shutil.move(str(generated), str(enriched))
             job.enriched_file = str(enriched)
+            write_job_log(f"Enriquecimento concluído · {result.count} resultados únicos processados.")
             self.events.emit(
                 "enrichment_completed",
                 run=run.to_dict(),
@@ -231,6 +242,8 @@ class ProspectingRunner:
             run.recalculate()
             self.events.emit("job_completed", run=run.to_dict(), job=job.to_dict())
         except Exception as exc:
+            write_job_log(f"ERRO: {exc}")
+            logger.exception("Job falhou")
             job.fail(str(exc))
             run.recalculate()
             self.events.emit("job_failed", run=run.to_dict(), job=job.to_dict(), error=str(exc))
