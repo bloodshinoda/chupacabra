@@ -135,7 +135,7 @@ def build_workbook(files_by_slug: dict, out_path: str):
         cols_here = [c for c in COLS if c[0] in df.columns or c[0] in ("phoneNumber", "title", "category", "address")]
 
         ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(cols_here))
-        title_cell = ws.cell(row=1, column=1, value=f"{sheet_name} — Chapecó/SC")
+        title_cell = ws.cell(row=1, column=1, value=sheet_name)
         title_cell.font = Font(name="Arial", size=13, bold=True, color="1F4E78")
         ws.row_dimensions[1].height = 22
 
@@ -191,7 +191,7 @@ def build_workbook(files_by_slug: dict, out_path: str):
     # Aba Resumo
     ws_sum = wb.create_sheet(title="Resumo", index=0)
     ws_sum.merge_cells("A1:E1")
-    t = ws_sum.cell(row=1, column=1, value="Resumo — Mapeamento de Concorrentes/Parceiros Chapecó/SC")
+    t = ws_sum.cell(row=1, column=1, value="Resumo — Mapeamento de Concorrentes/Parceiros")
     t.font = Font(name="Arial", size=14, bold=True, color="1F4E78")
     ws_sum.row_dimensions[1].height = 24
     ws_sum.cell(row=2, column=1, value=f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}").font = Font(
