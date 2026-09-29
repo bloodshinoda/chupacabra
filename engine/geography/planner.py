@@ -12,6 +12,7 @@ def build_matrix_jobs(
     seen: set[str] = set()
     for location in locations:
         for category_slug, label in categories:
+            report_category = label if category_slug.startswith("custom:") else category_slug
             job_slug = (
                 f"{category_slug}_{_slug(location.country)}_"
                 f"{_slug(location.state_code or location.state_name)}_{_slug(location.city)}"
@@ -27,7 +28,7 @@ def build_matrix_jobs(
                 suffix = f"{location.city} {location.country}"
                 query = f"{label} in {suffix}"
 
-            jobs.append((job_slug, location.city, category_slug, query))
+            jobs.append((job_slug, location.city, report_category, query))
     return jobs
 
 
