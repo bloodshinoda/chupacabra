@@ -90,6 +90,9 @@ function ChupacabraDashboard() {
   const [engineOnline, setEngineOnline] = useState(false);
   const [progress, setProgress] = useState(0);
   const [leadCount, setLeadCount] = useState(0);
+  const [queryCount, setQueryCount] = useState(0);
+  const [validCount, setValidCount] = useState(0);
+  const [stochasticTimer, setStochasticTimer] = useState(0);
   const [profile, setProfile] = useState<EngineProfile>("balanceado");
   const [targets, setTargets] = useState<TargetLocation[]>([]);
   const [maxJobs, setMaxJobs] = useState(5000);
@@ -197,6 +200,9 @@ function ChupacabraDashboard() {
             setScanState("running");
             setProgress(5);
             setLeadCount(0);
+            setQueryCount(0);
+            setValidCount(0);
+            setStochasticTimer(0);
             addLog("Execução iniciada pelo engine.");
             break;
           case "job_started":
@@ -205,7 +211,19 @@ function ChupacabraDashboard() {
             addLog(`Job iniciado · ${event.job?.id ?? "—"}.`);
             break;
           case "crawl_progress":
+            if (event.message === "Consultando página de resultados.") {
+              setQueryCount((current) => current + 1);
+            }
+            if (typeof event.collected === "number") {
+              setValidCount((current) => Math.max(current, event.collected));
+            }
             addLog(event.message ?? "Crawler em execução.");
+            break;
+          case "run_delay":
+            setStochasticTimer(Math.ceil(Number(event.delay ?? 0)));
+            break;
+          case "run_delay_tick":
+            setStochasticTimer(Math.ceil(Number(event.remaining ?? 0)));
             break;
           case "enrichment_started":
             addLog(event.message ?? "Iniciando enriquecimento.");
@@ -216,6 +234,7 @@ function ChupacabraDashboard() {
           case "job_completed":
             setProgress(event.run?.total_jobs ? (event.run.completed_jobs / event.run.total_jobs) * 100 : 100);
             setLeadCount((current) => current + (event.job?.results_count ?? 0));
+            setValidCount((current) => current + (event.job?.results_count ?? 0));
             addLog(`Job concluído · ${event.job?.results_count ?? 0} resultados coletados.`);
             break;
           case "job_failed":
@@ -334,7 +353,7 @@ function ChupacabraDashboard() {
         </header>
 
         <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
-          {view === "dashboard" && <DashboardView scanState={scanState} setScanState={setScanState} startScan={startScan} onPause={handlePause} onResume={handleResume} onCancel={handleCancel} profile={profile} setProfile={setProfile} progress={progress} leadCount={leadCount} logs={logs} targetCount={targets.length} categoryCount={[...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} plannedJobs={targets.length * [...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} />}
+          {view === "dashboard" && <DashboardView scanState={scanState} setScanState={setScanState} startScan={startScan} onPause={handlePause} onResume={handleResume} onCancel={handleCancel} profile={profile} setProfile={setProfile} progress={progress} leadCount={leadCount} queryCount={queryCount} validCount={validCount} stochasticTimer={stochasticTimer} logs={logs} targetCount={targets.length} categoryCount={[...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} plannedJobs={targets.length * [...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} />}
           {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} selectedCategoryIds={selectedCategoryIds} setSelectedCategoryIds={setSelectedCategoryIds} customCategories={customCategories} setCustomCategories={setCustomCategories} maxJobs={maxJobs} setMaxJobs={setMaxJobs} startScan={async () => { const started = await startScan(); if (started) setView("dashboard"); }} goToDashboard={() => setView("dashboard")} />}
           {view === "leads" && <LeadsView />}
           {view === "outreach" && <OutreachView />}
@@ -377,7 +396,7 @@ function PageIntro({ eyebrow, title, description, action }: { eyebrow: string; t
   return <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4"><div className="min-w-0"><p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-primary">{eyebrow}</p><h2 className="font-display text-2xl font-bold tracking-wide sm:text-3xl">{title}</h2><p className="mt-2 max-w-2xl text-sm text-muted-foreground">{description}</p></div>{action && <div className="shrink-0">{action}</div>}</div>;
 }
 
-function DashboardView({ scanState, setScanState, startScan, onPause, onResume, onCancel, profile, setProfile, progress, leadCount, logs, targetCount, categoryCount, plannedJobs }: { scanState: ScanState; setScanState: (s: ScanState) => void; startScan: () => void; onPause: () => void; onResume: () => void; onCancel: () => void; profile: EngineProfile; setProfile: (p: EngineProfile) => void; progress: number; leadCount: number; logs: string[]; targetCount: number; categoryCount: number; plannedJobs: number }) {
+function DashboardView({ scanState, setScanState, startScan, onPause, onResume, onCancel, profile, setProfile, progress, leadCount, queryCount, validCount, stochasticTimer, logs, targetCount, categoryCount, plannedJobs }: { scanState: ScanState; setScanState: (s: ScanState) => void; startScan: () => void; onPause: () => void; onResume: () => void; onCancel: () => void; profile: EngineProfile; setProfile: (p: EngineProfile) => void; progress: number; leadCount: number; queryCount: number; validCount: number; stochasticTimer: number; logs: string[]; targetCount: number; categoryCount: number; plannedJobs: number }) {
   const metrics = [
     { label: "Leads coletados", value: leadCount.toLocaleString("pt-BR"), delta: "+12.4%", icon: Users },
     { label: "Cidades configuradas", value: targetCount.toLocaleString("pt-BR"), delta: "na matriz atual", icon: MapPin },
@@ -392,8 +411,12 @@ function DashboardView({ scanState, setScanState, startScan, onPause, onResume, 
       <div className="panel overflow-hidden">
         <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-display text-lg font-semibold">Operação de varredura</p><p className="mt-1 text-xs text-muted-foreground">Execução real via engine · matriz atual: {targetCount} localidades × {categoryCount} nichos</p></div><div className="flex flex-wrap gap-2"><div className="flex items-center border border-border bg-surface p-1">{([["rapido","Rápido"],["balanceado","Balanceado"],["chupacabra","Chupacabra"]] as Array<[EngineProfile,string]>).map(([item,label])=><button key={item} onClick={()=>setProfile(item)} className={cn("px-2.5 py-1.5 font-mono text-[9px] uppercase transition-colors", profile===item ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground")}>{label}</button>)}</div>{scanState === "running" && <><Button variant="outline" onClick={onPause}><Pause /> Pausar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}{scanState === "paused" && <><Button variant="outline" onClick={onResume}><Play /> Retomar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}<Button size="lg" onClick={startScan} className="scan-button"><Zap />{scanState === "running" ? "Nova varredura" : "Iniciar varredura"}</Button></div></div>
         <div className="grid gap-6 p-5 md:grid-cols-[minmax(0,1fr)_220px]">
-          <div><div className="mb-2 flex justify-between text-xs"><span className="text-muted-foreground">Progresso do ciclo</span><span className="font-mono text-primary">{Math.round(progress)}%</span></div><div className="h-2 overflow-hidden bg-muted"><div className="h-full bg-primary transition-all duration-700 shadow-glow" style={{ width: `${progress}%` }} /></div><div className="mt-5 grid grid-cols-3 gap-3">{[["Consultas", "1.248"], ["Válidos", "386"], ["Taxa", "30,9%"]].map(([a,b]) => <div key={a} className="border-l border-border pl-3"><p className="font-mono text-[9px] uppercase text-muted-foreground">{a}</p><p className="mt-1 text-sm font-semibold">{b}</p></div>)}</div></div>
-          <div className="border border-border bg-surface p-4"><div className="flex items-center gap-2 text-xs font-medium"><Clock3 className="size-4 text-info" /> Timer estocástico</div><p className="mt-3 font-mono text-2xl font-bold">04.8<span className="text-xs text-muted-foreground">s</span></p><p className="mt-1 text-[10px] text-muted-foreground">Perfil {profile} · cadência controlada pelo engine</p></div>
+          <div><div className="mb-2 flex justify-between text-xs"><span className="text-muted-foreground">Progresso do ciclo</span><span className="font-mono text-primary">{Math.round(progress)}%</span></div><div className="h-2 overflow-hidden bg-muted"><div className="h-full bg-primary transition-all duration-700 shadow-glow" style={{ width: `${progress}%` }} /></div><div className="mt-5 grid grid-cols-3 gap-3">{[
+  ["Consultas", queryCount.toLocaleString("pt-BR")],
+  ["Válidos", validCount.toLocaleString("pt-BR")],
+  ["Taxa", queryCount ? `${((validCount / queryCount) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—"],
+].map(([a,b]) => <div key={a} className="border-l border-border pl-3"><p className="font-mono text-[9px] uppercase text-muted-foreground">{a}</p><p className="mt-1 text-sm font-semibold">{b}</p></div>)}</div></div>
+          <div className="border border-border bg-surface p-4"><div className="flex items-center gap-2 text-xs font-medium"><Clock3 className="size-4 text-info" /> Timer estocástico</div><p className="mt-3 font-mono text-2xl font-bold">{stochasticTimer > 0 ? stochasticTimer.toLocaleString("pt-BR") : "—"}<span className="text-xs text-muted-foreground">s</span></p><p className="mt-1 text-[10px] text-muted-foreground">Perfil {profile} · cadência controlada pelo engine</p></div>
         </div>
       </div>
       <div className="panel p-5"><div className="flex items-center justify-between"><div><p className="font-display font-semibold">Saúde do sistema</p><p className="mt-1 text-xs text-muted-foreground">Últimos 15 minutos</p></div><ShieldCheck className="size-5 text-primary" /></div><div className="mt-6 space-y-5">{[["Disponibilidade", 99], ["Qualidade dos proxies", 87], ["Integridade dos dados", 94]].map(([label, val]) => <div key={String(label)}><div className="mb-2 flex justify-between text-xs"><span className="text-muted-foreground">{label}</span><span className="font-mono">{val}%</span></div><div className="h-1 bg-muted"><div className="h-full bg-info" style={{ width: `${val}%` }} /></div></div>)}</div></div>
