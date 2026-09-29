@@ -54,7 +54,7 @@ class CrawlerAdapter:
 
         report("Preparando consulta no Google Maps.", query=queries[0], limit=limit)
         report(
-            "Iniciando crawler MapScraper.",
+            "Iniciando crawler...",
             query_count=len(queries),
             concurrency=max_concurrent,
         )
