@@ -121,6 +121,29 @@ class EngineLifecycleTests(unittest.TestCase):
             self.assertIn("run_cancelled", events)
             self.assertNotIn("run_completed", events)
 
+    def test_job_usa_categoria_sem_incluir_o_slug_geografico(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self._install_fake_pipeline()
+            runner = ProspectingRunner(
+                store=RunStore(tmp),
+                crawler=FakeCrawler(Path(tmp)),
+            )
+
+            run = runner.run(
+                [(
+                    "agencias_publicidade_br_sc_aguas_de_chapeco",
+                    "Águas de Chapecó",
+                    "agencias_publicidade",
+                    "Agências de publicidade em Águas de Chapecó SC",
+                )],
+                profile="rapido",
+            )
+
+            job = run.jobs[0]
+            self.assertEqual(job.category_slug, "agencias_publicidade")
+            self.assertEqual(job.category, "agencias_publicidade")
+            self.assertEqual(job.query, "Agências de publicidade em Águas de Chapecó SC")
+
     def test_arquivo_enriquecido_usa_nome_canonico(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self._install_fake_pipeline()
