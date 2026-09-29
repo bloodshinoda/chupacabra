@@ -164,6 +164,18 @@ class EngineLifecycleTests(unittest.TestCase):
             self.assertIn("run_delay", events)
             self.assertIn("run_delay_tick", events)
 
+    def test_nicho_personalizado_usa_nome_no_job_e_no_relatorio(self) -> None:
+        from engine.geography.planner import build_matrix_jobs
+        from engine.geography.models import TargetLocation
+
+        jobs = build_matrix_jobs(
+            [TargetLocation(id="br:sc:chapeco", country="BR", state_code="SC", state_name="Santa Catarina", city="Chapecó")],
+            [("custom:fbaa4cb1-d0f7-401c-88a4-df7eb61f2823", "Assistência Técnica em Informática")],
+        )
+
+        self.assertEqual(jobs[0][2], "Assistência Técnica em Informática")
+        self.assertIn("Assistência Técnica em Informática em Chapecó SC", jobs[0][3])
+
     def test_job_usa_categoria_sem_incluir_o_slug_geografico(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             self._install_fake_pipeline()
