@@ -31,7 +31,7 @@ A meta de distribuição atual é **Windows + instalador NSIS por máquina**, in
 - `placesCrawlerV2` é o crawler principal.
 - Coleta assíncrona via `aiohttp`.
 - Paginação direta do Google Maps.
-- Deduplicação por `place_id`.
+- Deduplicação por `place_id`, com contagem de coletados, únicos e duplicados refletida no painel.
 - Retry com backoff.
 - Perfis de execução:
   - `rapido`
@@ -42,7 +42,8 @@ A meta de distribuição atual é **Windows + instalador NSIS por máquina**, in
 - Daemon Python com protocolo JSON por stdin/stdout.
 - Eventos de ciclo de vida: início, jobs, progresso, conclusão, falha, cancelamento, logs e relatório final.
 - Protocolo do daemon protegido contra problemas comuns de UTF-8/mojibake entre Python, Rust e Windows.
-- Geração do relatório final XLSX após o enriquecimento dos jobs concluídos.
+- Geração do relatório final XLSX após o enriquecimento dos jobs concluídos, com sanitização de títulos de abas para compatibilidade com Excel.
+- Logs dos jobs com progresso real do crawler, enriquecimento e falhas do relatório.
 
 ### Tauri
 
@@ -172,7 +173,8 @@ O destino oficial atual é um instalador `.exe` NSIS com instalação **`perMach
 - instala por padrão em `Program Files`;
 - fica disponível para todos os usuários da máquina;
 - usa metadados de instalação em `HKLM`;
-- cria o atalho no Menu Iniciar em `Chupacabra System`.
+- cria o atalho no Menu Iniciar em `Chupacabra System`;
+- usa a tradução `PortugueseBR` do NSIS.
 
 A configuração Tauri já está preparada para esse modo.
 
