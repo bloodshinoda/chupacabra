@@ -122,7 +122,7 @@ class EngineLifecycleTests(unittest.TestCase):
             self.assertNotIn("run_completed", events)
 
     def test_deduplicacao_expoe_contagens_do_crawler(self) -> None:
-        from mapScraper.mapScraper.placesCrawlerV2 import save_to_csv
+        from mapScraper.placesCrawlerV2 import save_to_csv
 
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "bares.csv"
