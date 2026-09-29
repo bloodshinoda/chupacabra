@@ -60,6 +60,8 @@ export type EngineEvent = {
     status: string;
     category_slug?: string;
     results_count: number;
+    collected_count?: number;
+    duplicates_count?: number;
     raw_file?: string | null;
     enriched_file?: string | null;
     log_file?: string | null;
