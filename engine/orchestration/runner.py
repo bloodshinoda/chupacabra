@@ -119,8 +119,8 @@ class ProspectingRunner:
                 run.recalculate()
                 self.store.save_run(run)
 
-                if job.status is JobStatus.COMPLETED:
-                    self._delay_between_jobs(selected)
+                if job.status is JobStatus.COMPLETED and job.id != run.jobs[-1].id:
+                    self._delay_between_jobs(selected, next_job_id=run.jobs[run.jobs.index(job) + 1].id)
 
             if self._cancel.is_set():
                 run.cancel()
@@ -223,7 +223,11 @@ class ProspectingRunner:
                 message=f"Enriquecimento concluído · {result.count} resultados processados.",
             )
             job.enriched_file = str(enriched)
-            job.complete(result.count)
+            job.complete(
+                result.count,
+                collected_count=result.collected_count,
+                duplicates_count=result.duplicates_removed,
+            )
             run.recalculate()
             self.events.emit("job_completed", run=run.to_dict(), job=job.to_dict())
         except Exception as exc:
@@ -289,9 +293,9 @@ class ProspectingRunner:
         finally:
             shutil.rmtree(report_input, ignore_errors=True)
 
-    def _delay_between_jobs(self, profile: RunProfile) -> None:
+    def _delay_between_jobs(self, profile: RunProfile, *, next_job_id: str | None = None) -> None:
         delay = random.uniform(profile.delay_min, profile.delay_max)
-        self.events.emit("run_delay", delay=delay)
+        self.events.emit("run_delay", delay=delay, next_job_id=next_job_id)
         deadline = time.monotonic() + delay
         while time.monotonic() < deadline:
             if self._cancel.is_set():
