@@ -222,9 +222,19 @@ function ChupacabraDashboard() {
             break;
           case "run_delay":
             setStochasticTimer(Math.ceil(Number(event.delay ?? 0)));
+            addLog(`Pausa estocástica · próximo job ${event.next_job_id ?? "—"} · ${Math.ceil(Number(event.delay ?? 0))}s.`);
             break;
           case "run_delay_tick":
             setStochasticTimer(Math.ceil(Number(event.remaining ?? 0)));
+            break;
+          case "report_started":
+            addLog(event.message ?? "Gerando relatório XLSX.");
+            break;
+          case "report_completed":
+            addLog("Relatório XLSX gerado com sucesso.");
+            break;
+          case "report_failed":
+            addLog(`Falha no relatório XLSX · ${event.error ?? "erro desconhecido"}.`);
             break;
           case "enrichment_started":
             addLog(event.message ?? "Iniciando enriquecimento.");
