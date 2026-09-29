@@ -10,6 +10,8 @@ from typing import Any
 class CrawlResult:
     raw_file: str
     count: int
+    collected_count: int = 0
+    duplicates_removed: int = 0
 
 
 class CrawlerAdapter:
@@ -66,8 +68,11 @@ class CrawlerAdapter:
             max_concurrent,
             progress=progress,
         )
-        report("Crawler finalizado.", results=len(results))
-        crawler.save_to_csv(results, str(destination))
+        collected_count = len(results)
+        report("Crawler finalizado.", results=collected_count)
+        save_stats = crawler.save_to_csv(results, str(destination)) or {}
+        unique_count = int(save_stats.get("unique_count", collected_count))
+        duplicates_removed = int(save_stats.get("duplicates_removed", collected_count - unique_count))
 
         # The legacy saver intentionally skips file creation for zero results.
         # The engine keeps a valid empty CSV so the enrichment pipeline can
@@ -76,4 +81,9 @@ class CrawlerAdapter:
             with destination.open("w", newline="", encoding="utf-8") as handle:
                 csv.writer(handle).writerow(self._COLUMNS)
 
-        return CrawlResult(raw_file=str(destination), count=len(results))
+        return CrawlResult(
+            raw_file=str(destination),
+            count=unique_count,
+            collected_count=collected_count,
+            duplicates_removed=duplicates_removed,
+        )
