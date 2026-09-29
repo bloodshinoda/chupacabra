@@ -42,7 +42,7 @@ class FakeCrawler:
             writer = csv.writer(handle)
             writer.writerow(["id", "title"])
             writer.writerow(["1", "Lead de teste"])
-        return CrawlResult(raw_file=str(path), count=1)
+        return CrawlResult(raw_file=str(path), count=1, collected_count=1, duplicates_removed=0)
 
 
 class EngineLifecycleTests(unittest.TestCase):
@@ -120,6 +120,49 @@ class EngineLifecycleTests(unittest.TestCase):
             self.assertEqual(run.jobs[1].status.value, "cancelled")
             self.assertIn("run_cancelled", events)
             self.assertNotIn("run_completed", events)
+
+    def test_deduplicacao_expoe_contagens_do_crawler(self) -> None:
+        from mapScraper.mapScraper.placesCrawlerV2 import save_to_csv
+
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "bares.csv"
+            rows = [
+                {"id": "1", "title": "Bar A"},
+                {"id": "1", "title": "Bar A duplicado"},
+                {"id": "2", "title": "Bar B"},
+            ]
+
+            stats = save_to_csv(rows, str(output))
+
+            self.assertEqual(stats["collected_count"], 3)
+            self.assertEqual(stats["unique_count"], 2)
+            self.assertEqual(stats["duplicates_removed"], 1)
+            with output.open(encoding="utf-8", newline="") as handle:
+                self.assertEqual(sum(1 for _ in csv.DictReader(handle)), 2)
+
+    def test_timer_so_existe_entre_jobs(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self._install_fake_pipeline()
+            events = []
+            runner = ProspectingRunner(
+                store=RunStore(tmp),
+                crawler=FakeCrawler(Path(tmp)),
+            )
+            runner.events._handler = lambda event: events.append(event.type)
+
+            runner.run([("teste", "Chapeco", "Agencia", "consulta")], profile="rapido")
+            self.assertNotIn("run_delay", events)
+
+            events.clear()
+            runner.run(
+                [
+                    ("primeiro", "Chapeco", "Agencia", "consulta 1"),
+                    ("segundo", "Chapeco", "Grafica", "consulta 2"),
+                ],
+                profile="rapido",
+            )
+            self.assertIn("run_delay", events)
+            self.assertIn("run_delay_tick", events)
 
     def test_job_usa_categoria_sem_incluir_o_slug_geografico(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
