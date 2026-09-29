@@ -29,6 +29,8 @@ class SearchJob:
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
     results_count: int = 0
+    collected_count: int = 0
+    duplicates_count: int = 0
     raw_file: Optional[str] = None
     enriched_file: Optional[str] = None
     log_file: Optional[str] = None
@@ -38,9 +40,17 @@ class SearchJob:
         self.status = JobStatus.RUNNING
         self.started_at = utc_now()
 
-    def complete(self, results_count: int = 0) -> None:
+    def complete(
+        self,
+        results_count: int = 0,
+        *,
+        collected_count: int | None = None,
+        duplicates_count: int = 0,
+    ) -> None:
         self.status = JobStatus.COMPLETED
         self.results_count = results_count
+        self.collected_count = results_count if collected_count is None else collected_count
+        self.duplicates_count = duplicates_count
         self.finished_at = utc_now()
 
     def fail(self, error: str) -> None:
