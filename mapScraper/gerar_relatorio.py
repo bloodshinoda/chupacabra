@@ -51,6 +51,21 @@ def friendly_name(slug: str) -> str:
     return slug.replace("_", " ").title()
 
 
+def safe_sheet_title(name: str, used: set[str]) -> str:
+    """Normalize a category name to a valid, unique Excel worksheet title."""
+    cleaned = re.sub(r'[\\/:*?\[\]]', " ", str(name))
+    cleaned = re.sub(r"\s+", " ", cleaned).strip() or "Categoria"
+    cleaned = cleaned[:31]
+    candidate = cleaned
+    suffix = 2
+    while candidate in used:
+        suffix_text = f" ({suffix})"
+        candidate = f"{cleaned[:31 - len(suffix_text)]}{suffix_text}"
+        suffix += 1
+    used.add(candidate)
+    return candidate
+
+
 def discover_files(folder: str) -> dict:
     """
     Varre a pasta procurando pares <slug>_raw.csv / <slug>.csv.
@@ -115,6 +130,7 @@ def build_workbook(files_by_slug: dict, out_path: str):
 
     summary_rows = []  # (nome, total, celular, fixo/sem, score_medio, segmentos_counter)
     segment_totals = {"micro": 0, "small": 0, "medium": 0, "large": 0}
+    used_sheet_titles: set[str] = set()
 
     for slug in sorted(files_by_slug, key=lambda s: friendly_name(s)):
         path = files_by_slug[slug]
@@ -130,7 +146,7 @@ def build_workbook(files_by_slug: dict, out_path: str):
             ascending=False,
         ).reset_index(drop=True)
 
-        ws = wb.create_sheet(title=sheet_name[:31])
+        ws = wb.create_sheet(title=safe_sheet_title(sheet_name, used_sheet_titles))
 
         cols_here = [c for c in COLS if c[0] in df.columns or c[0] in ("phoneNumber", "title", "category", "address")]
 
