@@ -2,7 +2,7 @@
 
 **B2B Prospect Engine** para pesquisa de empresas por cidade e nicho, com crawler assíncrono, enriquecimento de leads, execução controlada por perfis e interface desktop baseada em Tauri.
 
-> **Versão 0.3.0 — primeira versão empacotável do desktop.** O frontend TanStack/Tauri já está integrado ao engine Python legado, com execução real, matriz de alvos, enriquecimento e geração do relatório final.
+> **Versão 0.3.1 — primeira versão pública com instalador Windows e splash do Chupacabrinha.** O frontend TanStack/Tauri já está integrado ao engine Python legado, com execução real, matriz de alvos, enriquecimento e geração do relatório final.
 
 ## Objetivo
 
@@ -65,7 +65,7 @@ O frontend de produção será servido pelo diretório `.output/public` gerado p
 
 A configuração de desenvolvimento usa `127.0.0.1:5173` com porta estrita (necessária para o Tauri em Windows).
 
-### P0.5 — Runtime Windows / Distribuição 0.3.0
+### P0.5 — Runtime Windows / Distribuição 0.3.1
 
 O P0.5 estabelece a primeira cadeia de distribuição do engine:
 
@@ -177,6 +177,10 @@ O destino oficial atual é um instalador `.exe` NSIS com instalação **`perMach
 - usa a tradução `PortugueseBR` do NSIS.
 
 A configuração Tauri já está preparada para esse modo.
+
+### Splash do aplicativo
+
+A abertura do aplicativo exibe a arte-mestra original do Chupacabrinha por alguns instantes antes de entregar o controle ao painel. A mesma arte fica versionada em `public/chupacabra-splash.png`, preservando a identidade visual usada como base para os ícones do Tauri.
 
 ### Artes do instalador
 
