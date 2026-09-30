@@ -12,12 +12,33 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Chupacabra System",
         "width": 1440,
         "height": 900,
         "minWidth": 1100,
         "minHeight": 700,
-        "resizable": true
+        "resizable": true,
+        "visible": false
+      },
+      {
+        "label": "splashscreen",
+        "url": "/splashscreen.html",
+        "width": 480,
+        "height": 480,
+        "decorations": false,
+        "transparent": true,
+        "shadow": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "closable": false,
+        "minimizable": false,
+        "maximizable": false,
+        "center": true,
+        "focus": false,
+        "noRedirectionBitmap": true,
+        "visible": true
       }
     ],
     "security": {
