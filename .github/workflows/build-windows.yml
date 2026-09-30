@@ -3,10 +3,14 @@ name: Build Windows
 on:
   push:
     branches:
+      - main
       - feature/engine-p0
     tags:
       - "v*"
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 concurrency:
   group: build-windows-${{ github.ref }}
@@ -72,3 +76,4 @@ jobs:
         with:
           files: src-tauri/target/release/bundle/nsis/*.exe
           generate_release_notes: true
+          fail_on_unmatched_files: true
