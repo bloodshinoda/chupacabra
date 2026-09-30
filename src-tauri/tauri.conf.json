@@ -37,7 +37,6 @@
         "maximizable": false,
         "center": true,
         "focus": false,
-        "noRedirectionBitmap": true,
         "visible": true
       }
     ],
