@@ -14,6 +14,7 @@ import {
   Globe2,
   LayoutDashboard,
   MapPin,
+  Info,
   Menu,
   MessageSquareText,
   Network,
@@ -39,6 +40,13 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { cancelRun, engineStatus, isTauriRuntime, listenEngineEvents, loadBrazilCities, loadBrazilStates, loadWorldCities, pauseRun, resumeRun, startRun, type EngineProfile, type TargetLocation } from "@/lib/engine";
 
 export const Route = createFileRoute("/")({
@@ -86,6 +94,7 @@ function ChupacabraDashboard() {
   const [view, setView] = useState<View>("dashboard");
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
   const [engineOnline, setEngineOnline] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -350,7 +359,7 @@ function ChupacabraDashboard() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="noise-overlay" />
-      <Sidebar view={view} setView={setView} open={mobileOpen} setOpen={setMobileOpen} scanState={scanState} engineOnline={engineOnline} />
+      <Sidebar view={view} setView={setView} open={mobileOpen} setOpen={setMobileOpen} scanState={scanState} engineOnline={engineOnline} onAbout={() => setAboutOpen(true)} />
       <main className="min-h-screen lg:pl-64">
         <header className="sticky top-0 z-30 grid h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir navegação"><Menu /></Button>
@@ -360,7 +369,7 @@ function ChupacabraDashboard() {
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-4">
             <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex"><span className={cn("status-dot", engineOnline ? "" : "bg-destructive shadow-none")} /> {engineOnline ? "Engine operacional" : "Engine offline"}</div>
-            <Button variant="outline" size="icon" aria-label="Configurações"><Settings2 /></Button>
+            <Button variant="outline" size="icon" aria-label="Sobre o Chupacabra System" onClick={() => setAboutOpen(true)}><Info /></Button>
             <div className="grid size-8 place-items-center rounded-md border border-primary/30 bg-primary/10 font-mono text-xs font-bold text-primary">RG</div>
           </div>
         </header>
@@ -372,6 +381,7 @@ function ChupacabraDashboard() {
           {view === "outreach" && <OutreachView />}
           {view === "reports" && <ReportsView />}
         </div>
+        <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
       </main>
     </div>
   );
@@ -382,7 +392,7 @@ function addEngineLog(setLogs: React.Dispatch<React.SetStateAction<string[]>>, m
   setLogs((current) => [...current.slice(-7), `[${new Date().toLocaleTimeString("pt-BR")}] ${message}`]);
 }
 
-function Sidebar({ view, setView, open, setOpen, scanState, engineOnline }: { view: View; setView: (v: View) => void; open: boolean; setOpen: (v: boolean) => void; scanState: ScanState; engineOnline: boolean }) {
+function Sidebar({ view, setView, open, setOpen, scanState, engineOnline, onAbout }: { view: View; setView: (v: View) => void; open: boolean; setOpen: (v: boolean) => void; scanState: ScanState; engineOnline: boolean; onAbout: () => void }) {
   return <>
     {open && <button aria-label="Fechar navegação" className="fixed inset-0 z-40 bg-overlay lg:hidden" onClick={() => setOpen(false)} />}
     <aside className={cn("fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-sidebar transition-transform duration-300 lg:translate-x-0", open ? "translate-x-0" : "-translate-x-full")}>
@@ -400,9 +410,71 @@ function Sidebar({ view, setView, open, setOpen, scanState, engineOnline }: { vi
         <div className="mt-3 h-1 overflow-hidden bg-muted"><div className="h-full w-full bg-primary shadow-glow" /></div>
         <div className="mt-2 flex justify-between font-mono text-[9px] text-muted-foreground"><span>Processo IPC conectado</span></div>
       </div>
-      <div className="border-t border-border px-5 py-4 font-mono text-[9px] text-muted-foreground"><div className="flex justify-between"><span>BUILD</span><span className="text-primary">v0.3.0</span></div></div>
+      <div className="border-t border-border px-5 py-4">
+        <button onClick={onAbout} className="flex w-full items-center justify-between text-left font-mono text-[9px] text-muted-foreground transition-colors hover:text-foreground">
+          <span className="uppercase">Sobre</span>
+          <span className="text-primary">v0.3.1</span>
+        </button>
+      </div>
     </aside>
   </>;
+}
+
+
+function AboutDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md border-primary/20 bg-[#0b151b] text-foreground">
+        <DialogHeader className="text-left">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="grid size-10 place-items-center border border-primary/30 bg-primary/10 text-primary">
+              <Info className="size-5" />
+            </div>
+            <div>
+              <DialogTitle className="font-display text-xl tracking-wide">Chupacabra System</DialogTitle>
+              <DialogDescription className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em]">
+                B2B Prospect Engine
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="border border-border bg-surface p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Versão</span>
+              <span className="font-mono text-sm font-semibold text-primary">0.3.1</span>
+            </div>
+            <div className="mt-3 flex items-center justify-between">
+              <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Engine</span>
+              <span className="text-xs">Python + Tauri</span>
+            </div>
+          </div>
+
+          <p className="text-sm leading-6 text-muted-foreground">
+            Ferramenta desktop para inteligência de mercado, prospecção B2B,
+            coleta de dados e geração de relatórios.
+          </p>
+
+          <div className="border-t border-border pt-4">
+            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Projeto</p>
+            <a
+              href="https://github.com/bloodshinoda/chupacabra"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-flex items-center gap-2 text-xs text-primary transition-colors hover:underline"
+            >
+              GitHub · Chupacabra System
+            </a>
+          </div>
+
+          <p className="pt-1 text-center font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground/60">
+            Caçar dados. Encontrar oportunidades.
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function PageIntro({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: React.ReactNode }) {
