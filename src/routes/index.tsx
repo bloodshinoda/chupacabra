@@ -24,7 +24,6 @@ import {
   Radio,
   Search,
   Send,
-  Settings2,
   ShieldCheck,
   Sparkles,
   Target,
