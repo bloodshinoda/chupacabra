@@ -1,1 +1,21 @@
 node_modules
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.env
+
+# Dados de execução e leads (telefones, endereços, empresas)
+runs/
+mapScraper/data/
+mapScraper/*.xlsx
+mapScraper/relatorio_*.xlsx
+mapScraper/logs/
+
+# Build artifacts
+engine/build/
+engine/dist/
+.output/
+.wrangler/
+src-tauri/gen/

@@ -4,7 +4,6 @@ import {
   Bot,
   Building2,
   Check,
-  ChevronDown,
   CirclePause,
   Clock3,
   Database,
@@ -34,10 +33,13 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { cancelRun, engineStatus, isTauriRuntime, listenEngineEvents, loadBrazilCities, loadBrazilStates, loadWorldCities, pauseRun, resumeRun, startRun, type EngineProfile, type TargetLocation } from "@/lib/engine";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -84,33 +86,263 @@ function ChupacabraDashboard() {
   const [view, setView] = useState<View>("dashboard");
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [logs, setLogs] = useState(INITIAL_LOGS);
+  const [logs, setLogs] = useState<string[]>([]);
+  const [engineOnline, setEngineOnline] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [leadCount, setLeadCount] = useState(2847);
+  const [leadCount, setLeadCount] = useState(0);
+  const [queryCount, setQueryCount] = useState(0);
+  const [collectedCount, setCollectedCount] = useState(0);
+  const [validCount, setValidCount] = useState(0);
+  const [duplicateCount, setDuplicateCount] = useState(0);
+  const [stochasticTimer, setStochasticTimer] = useState(0);
+  const [profile, setProfile] = useState<EngineProfile>("balanceado");
+  const [targets, setTargets] = useState<TargetLocation[]>([]);
+  const [maxJobs, setMaxJobs] = useState(5000);
+  const [categories] = useState<Array<[string, string]>>([
+    ["agencias_publicidade", "Agências de publicidade"],
+    ["graficas", "Gráficas"],
+    ["graficas_rapidas", "Gráficas rápidas"],
+    ["comunicacao_visual", "Comunicação visual"],
+    ["marketing_digital", "Agências de marketing digital"],
+    ["brindes_corporativos", "Brindes corporativos"],
+    ["eventos_corporativos", "Organização de eventos corporativos"],
+    ["serigrafia_estamparia", "Serigrafia e estamparia"],
+    ["imobiliarias", "Imobiliárias"],
+    ["concessionarias", "Concessionárias de veículos"],
+    ["construtoras", "Construtoras"],
+    ["clinicas_odontologicas", "Clínicas odontológicas"],
+    ["academias", "Academias"],
+    ["restaurantes", "Restaurantes"],
+    ["bares", "Bares"],
+    ["hoteis", "Hotéis"],
+    ["pousadas", "Pousadas"],
+    ["turismo", "Agências de turismo"],
+    ["escolas", "Escolas particulares"],
+    ["cursos_profissionalizantes", "Cursos profissionalizantes"],
+    ["faculdades", "Faculdades"],
+    ["clinicas_medicas", "Clínicas médicas"],
+    ["clinicas_veterinarias", "Clínicas veterinárias"],
+    ["hospitais", "Hospitais"],
+    ["farmacias", "Farmácias"],
+    ["laboratorios", "Laboratórios"],
+    ["psicologia", "Psicologia"],
+    ["nutricao", "Nutrição"],
+    ["fisioterapia", "Fisioterapia"],
+    ["advocacia", "Escritórios de advocacia"],
+    ["contabilidade", "Contabilidade"],
+    ["consultoria", "Consultorias"],
+    ["recursos_humanos", "Recursos humanos"],
+    ["seguros", "Seguradoras e corretores de seguros"],
+    ["bancos", "Bancos"],
+    ["concessionarias_motos", "Concessionárias de motos"],
+    ["oficinas", "Oficinas mecânicas"],
+    ["autopecas", "Autopeças"],
+    ["transportadoras", "Transportadoras"],
+    ["logistica", "Empresas de logística"],
+    ["industria_metalurgica", "Metalúrgicas"],
+    ["industria_textil", "Indústrias têxteis"],
+    ["industria_alimenticia", "Indústrias alimentícias"],
+    ["industria_moveleira", "Indústrias moveleiras"],
+    ["agropecuaria", "Agropecuárias"],
+    ["cooperativas", "Cooperativas"],
+    ["distribuidoras", "Distribuidoras"],
+    ["supermercados", "Supermercados"],
+    ["lojas_materiais_construcao", "Lojas de materiais de construção"],
+    ["lojas_moveis", "Lojas de móveis"],
+    ["lojas_eletrodomesticos", "Lojas de eletrodomésticos"],
+    ["moda", "Lojas de moda"],
+    ["joalherias", "Joalherias"],
+    ["pet_shops", "Pet shops"],
+    ["salões_beleza", "Salões de beleza"],
+    ["estetica", "Clínicas de estética"],
+    ["fotografia", "Fotografia"],
+    ["producao_video", "Produção audiovisual"],
+    ["arquitetura", "Arquitetura"],
+    ["engenharia", "Engenharia"],
+    ["energia_solar", "Energia solar"],
+    ["seguranca", "Segurança privada"],
+    ["limpeza", "Empresas de limpeza"],
+    ["tecnologia", "Empresas de tecnologia"],
+    ["software", "Software e SaaS"],
+    ["provedores_internet", "Provedores de internet"],
+    ["ecommerce", "E-commerce"],
+    ["marketplaces", "Marketplaces"],
+  ]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
+  const [customCategories, setCustomCategories] = useState<Array<[string, string]>>([]);
 
   useEffect(() => {
-    if (scanState !== "running") return;
-    const timer = window.setInterval(() => {
-      setProgress((current) => (current >= 100 ? 3 : Math.min(current + 1.2, 100)));
-      setLeadCount((current) => current + Math.floor(Math.random() * 4));
-      if (Math.random() > 0.55) {
-        const events = [
-          "Lead validado · domínio e telefone encontrados.",
-          "Consultando diretório local · Curitiba/PR.",
-          "Fingerprint rotacionado com sucesso.",
-          "Empresa adicionada à fila de qualificação.",
-        ];
-        const next = events[Math.floor(Math.random() * events.length)];
-        setLogs((current) => [...current.slice(-6), `[${new Date().toLocaleTimeString("pt-BR")}] ${next}`]);
-      }
-    }, 1500);
-    return () => window.clearInterval(timer);
-  }, [scanState]);
+    if (!isTauriRuntime()) return;
 
-  const startScan = () => {
-    setScanState("running");
-    setProgress((current) => (current === 0 ? 7 : current));
-    setLogs((current) => [...current, `[${new Date().toLocaleTimeString("pt-BR")}] Varredura em massa iniciada.`]);
+    let active = true;
+    let unlisten: (() => void) | undefined;
+
+    void Promise.all([
+      engineStatus().then((status) => setEngineOnline(status === "running")),
+      listenEngineEvents((event) => {
+        if (!active) return;
+
+        const stamp = new Date(event.timestamp ?? Date.now()).toLocaleTimeString("pt-BR");
+        const addLog = (message: string) => {
+          setLogs((current) => [...current.slice(-7), `[${stamp}] ${message}`]);
+        };
+
+        switch (event.type) {
+          case "engine_ready":
+            setEngineOnline(true);
+            addLog("Motor de extração pronto.");
+            break;
+          case "engine_stderr":
+            addLog(`Engine · ${event.error ?? "erro no processo"}`);
+            break;
+          case "engine_status":
+            setEngineOnline(true);
+            break;
+          case "run_started":
+            setScanState("running");
+            setProgress(5);
+            setLeadCount(0);
+            setQueryCount(0);
+            setCollectedCount(0);
+            setValidCount(0);
+            setDuplicateCount(0);
+            setStochasticTimer(0);
+            addLog("Execução iniciada pelo engine.");
+            break;
+          case "job_started":
+            setScanState("running");
+            setProgress(event.run?.total_jobs ? (event.run.completed_jobs / event.run.total_jobs) * 100 : 5);
+            addLog(`Job iniciado · ${event.job?.id ?? "—"}.`);
+            break;
+          case "crawl_progress":
+            if (event.message === "Consultando página de resultados.") {
+              setQueryCount((current) => current + 1);
+            }
+            addLog(event.message ?? "Crawler em execução.");
+            break;
+          case "run_delay":
+            setStochasticTimer(Math.ceil(Number(event.delay ?? 0)));
+            addLog(`Pausa estocástica · próximo job ${event.next_job_id ?? "—"} · ${Math.ceil(Number(event.delay ?? 0))}s.`);
+            break;
+          case "run_delay_tick":
+            setStochasticTimer(Math.ceil(Number(event.remaining ?? 0)));
+            break;
+          case "report_started":
+            addLog(event.message ?? "Gerando relatório XLSX.");
+            break;
+          case "report_completed":
+            addLog("Relatório XLSX gerado com sucesso.");
+            break;
+          case "report_failed":
+            addLog(`Falha no relatório XLSX · ${event.error ?? "erro desconhecido"}.`);
+            break;
+          case "enrichment_started":
+            addLog(event.message ?? "Iniciando enriquecimento.");
+            break;
+          case "enrichment_completed":
+            addLog(event.message ?? "Enriquecimento concluído.");
+            break;
+          case "job_completed":
+            setProgress(event.run?.total_jobs ? (event.run.completed_jobs / event.run.total_jobs) * 100 : 100);
+            setLeadCount((current) => current + (event.job?.results_count ?? 0));
+            setCollectedCount((current) => current + (event.job?.collected_count ?? event.job?.results_count ?? 0));
+            setValidCount((current) => current + (event.job?.results_count ?? 0));
+            setDuplicateCount((current) => current + (event.job?.duplicates_count ?? 0));
+            addLog(`Job concluído · ${event.job?.results_count ?? 0} únicos de ${event.job?.collected_count ?? event.job?.results_count ?? 0} coletados · ${event.job?.duplicates_count ?? 0} duplicados.`);
+            break;
+          case "job_failed":
+            addLog(`Job falhou · ${event.error ?? event.job?.error ?? "erro desconhecido"}.`);
+            break;
+          case "run_paused":
+            setScanState("paused");
+            addLog("Execução pausada.");
+            break;
+          case "run_resumed":
+            setScanState("running");
+            addLog("Execução retomada.");
+            break;
+          case "run_cancelled":
+            setScanState("idle");
+            addLog("Execução cancelada.");
+            break;
+          case "run_failed":
+            setScanState("idle");
+            addLog(`Execução falhou · ${event.error ?? "consulte o log do engine"}.`);
+            break;
+          case "run_completed":
+            setScanState("idle");
+            setProgress(100);
+            addLog("Execução concluída.");
+            break;
+          case "engine_error":
+            setEngineOnline(false);
+            addLog(`Erro do engine · ${event.error ?? "erro desconhecido"}.`);
+            break;
+        }
+      }),
+    ]).then(([, stop]) => {
+      if (active) unlisten = stop;
+      else stop();
+    }).catch((error) => {
+      setEngineOnline(false);
+      addEngineLog(setLogs, `Falha ao conectar ao engine · ${error instanceof Error ? error.message : String(error)}`);
+    });
+
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, []);
+
+  const startScan = async (): Promise<boolean> => {
+    setLogs((current) => [...current, `[${new Date().toLocaleTimeString("pt-BR")}] Iniciando varredura com perfil ${profile}.`]);
+    setProgress(5);
+
+    if (!isTauriRuntime()) {
+      setLogs((current) => [...current, `[${new Date().toLocaleTimeString("pt-BR")}] Abra o aplicativo Tauri para executar o engine.`]);
+      return false;
+    }
+
+    try {
+      if (!targets.length) throw new Error("Selecione ao menos uma cidade na Matriz de Alvos.");
+      if (!selectedCategoryIds.length) throw new Error("Selecione ao menos um nicho na Matriz de Alvos.");
+      const plannedJobs = targets.length * [...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length;
+      if (plannedJobs > maxJobs) {
+        throw new Error(`A matriz possui ${plannedJobs.toLocaleString("pt-BR")} jobs e o limite atual é ${maxJobs.toLocaleString("pt-BR")}.`);
+      }
+      const allCategories = [...categories, ...customCategories];
+      await startRun({ profile, targets, categories: allCategories.filter(([id]) => selectedCategoryIds.includes(id)), max_jobs: maxJobs });
+      setScanState("running");
+      return true;
+    } catch (error) {
+      setScanState("idle");
+      addEngineLog(setLogs, `Falha ao iniciar engine · ${error instanceof Error ? error.message : String(error)}`);
+      return false;
+    }
+  };
+
+  const handlePause = async () => {
+    try {
+      await pauseRun();
+    } catch (error) {
+      addEngineLog(setLogs, `Falha ao pausar engine · ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const handleResume = async () => {
+    try {
+      await resumeRun();
+    } catch (error) {
+      addEngineLog(setLogs, `Falha ao retomar engine · ${error instanceof Error ? error.message : String(error)}`);
+    }
+  };
+
+  const handleCancel = async () => {
+    try {
+      await cancelRun();
+    } catch (error) {
+      addEngineLog(setLogs, `Falha ao cancelar engine · ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
 
   const currentLabel = NAV_ITEMS.find((item) => item.id === view)?.label ?? "Painel";
@@ -118,7 +350,7 @@ function ChupacabraDashboard() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="noise-overlay" />
-      <Sidebar view={view} setView={setView} open={mobileOpen} setOpen={setMobileOpen} scanState={scanState} />
+      <Sidebar view={view} setView={setView} open={mobileOpen} setOpen={setMobileOpen} scanState={scanState} engineOnline={engineOnline} />
       <main className="min-h-screen lg:pl-64">
         <header className="sticky top-0 z-30 grid h-16 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/85 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(true)} aria-label="Abrir navegação"><Menu /></Button>
@@ -127,15 +359,15 @@ function ChupacabraDashboard() {
             <h1 className="truncate text-sm font-semibold sm:text-base">{currentLabel}</h1>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-4">
-            <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex"><span className="status-dot" /> Sistema operacional</div>
+            <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex"><span className={cn("status-dot", engineOnline ? "" : "bg-destructive shadow-none")} /> {engineOnline ? "Engine operacional" : "Engine offline"}</div>
             <Button variant="outline" size="icon" aria-label="Configurações"><Settings2 /></Button>
             <div className="grid size-8 place-items-center rounded-md border border-primary/30 bg-primary/10 font-mono text-xs font-bold text-primary">RG</div>
           </div>
         </header>
 
         <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
-          {view === "dashboard" && <DashboardView scanState={scanState} setScanState={setScanState} startScan={startScan} progress={progress} leadCount={leadCount} logs={logs} />}
-          {view === "targets" && <TargetsView />}
+          {view === "dashboard" && <DashboardView scanState={scanState} setScanState={setScanState} startScan={startScan} onPause={handlePause} onResume={handleResume} onCancel={handleCancel} profile={profile} setProfile={setProfile} progress={progress} leadCount={leadCount} queryCount={queryCount} collectedCount={collectedCount} validCount={validCount} duplicateCount={duplicateCount} stochasticTimer={stochasticTimer} logs={logs} targetCount={targets.length} categoryCount={[...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} plannedJobs={targets.length * [...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} />}
+          {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} selectedCategoryIds={selectedCategoryIds} setSelectedCategoryIds={setSelectedCategoryIds} customCategories={customCategories} setCustomCategories={setCustomCategories} maxJobs={maxJobs} setMaxJobs={setMaxJobs} startScan={async () => { const started = await startScan(); if (started) setView("dashboard"); }} goToDashboard={() => setView("dashboard")} />}
           {view === "leads" && <LeadsView />}
           {view === "outreach" && <OutreachView />}
           {view === "reports" && <ReportsView />}
@@ -145,7 +377,12 @@ function ChupacabraDashboard() {
   );
 }
 
-function Sidebar({ view, setView, open, setOpen, scanState }: { view: View; setView: (v: View) => void; open: boolean; setOpen: (v: boolean) => void; scanState: ScanState }) {
+
+function addEngineLog(setLogs: React.Dispatch<React.SetStateAction<string[]>>, message: string) {
+  setLogs((current) => [...current.slice(-7), `[${new Date().toLocaleTimeString("pt-BR")}] ${message}`]);
+}
+
+function Sidebar({ view, setView, open, setOpen, scanState, engineOnline }: { view: View; setView: (v: View) => void; open: boolean; setOpen: (v: boolean) => void; scanState: ScanState; engineOnline: boolean }) {
   return <>
     {open && <button aria-label="Fechar navegação" className="fixed inset-0 z-40 bg-overlay lg:hidden" onClick={() => setOpen(false)} />}
     <aside className={cn("fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-border bg-sidebar transition-transform duration-300 lg:translate-x-0", open ? "translate-x-0" : "-translate-x-full")}>
@@ -159,11 +396,11 @@ function Sidebar({ view, setView, open, setOpen, scanState }: { view: View; setV
       </nav>
       <div className="m-3 border border-border bg-surface p-3">
         <div className="flex items-center justify-between"><span className="font-mono text-[9px] uppercase text-muted-foreground">Engine status</span><Activity className="size-4 text-primary" /></div>
-        <div className="mt-3 flex items-center gap-2"><span className={cn("status-dot", scanState === "paused" && "bg-warning", scanState === "idle" && "bg-muted-foreground shadow-none")} /><span className="text-xs font-medium">{scanState === "running" ? "Operando" : scanState === "paused" ? "Pausado" : "Em espera"}</span></div>
-        <div className="mt-3 h-1 overflow-hidden bg-muted"><div className="h-full w-3/4 bg-primary shadow-glow" /></div>
-        <div className="mt-2 flex justify-between font-mono text-[9px] text-muted-foreground"><span>CPU 24%</span><span>MEM 1.8 GB</span></div>
+        <div className="mt-3 flex items-center gap-2"><span className={cn("status-dot", !engineOnline && "bg-destructive shadow-none", scanState === "paused" && "bg-warning")} /><span className="text-xs font-medium">{!engineOnline ? "Offline" : scanState === "running" ? "Operando" : scanState === "paused" ? "Pausado" : "Em espera"}</span></div>
+        <div className="mt-3 h-1 overflow-hidden bg-muted"><div className="h-full w-full bg-primary shadow-glow" /></div>
+        <div className="mt-2 flex justify-between font-mono text-[9px] text-muted-foreground"><span>Processo IPC conectado</span></div>
       </div>
-      <div className="border-t border-border px-5 py-4 font-mono text-[9px] text-muted-foreground"><div className="flex justify-between"><span>BUILD</span><span className="text-primary">v2.4.0 STABLE</span></div></div>
+      <div className="border-t border-border px-5 py-4 font-mono text-[9px] text-muted-foreground"><div className="flex justify-between"><span>BUILD</span><span className="text-primary">v0.3.0</span></div></div>
     </aside>
   </>;
 }
@@ -172,12 +409,12 @@ function PageIntro({ eyebrow, title, description, action }: { eyebrow: string; t
   return <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4"><div className="min-w-0"><p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-primary">{eyebrow}</p><h2 className="font-display text-2xl font-bold tracking-wide sm:text-3xl">{title}</h2><p className="mt-2 max-w-2xl text-sm text-muted-foreground">{description}</p></div>{action && <div className="shrink-0">{action}</div>}</div>;
 }
 
-function DashboardView({ scanState, setScanState, startScan, progress, leadCount, logs }: { scanState: ScanState; setScanState: (s: ScanState) => void; startScan: () => void; progress: number; leadCount: number; logs: string[] }) {
+function DashboardView({ scanState, setScanState, startScan, onPause, onResume, onCancel, profile, setProfile, progress, leadCount, queryCount, collectedCount, validCount, duplicateCount, stochasticTimer, logs, targetCount, categoryCount, plannedJobs }: { scanState: ScanState; setScanState: (s: ScanState) => void; startScan: () => void; onPause: () => void; onResume: () => void; onCancel: () => void; profile: EngineProfile; setProfile: (p: EngineProfile) => void; progress: number; leadCount: number; queryCount: number; collectedCount: number; validCount: number; duplicateCount: number; stochasticTimer: number; logs: string[]; targetCount: number; categoryCount: number; plannedJobs: number }) {
   const metrics = [
-    { label: "Leads coletados", value: leadCount.toLocaleString("pt-BR"), delta: "+12.4%", icon: Users },
-    { label: "Cidades configuradas", value: "12", delta: "4 estados", icon: MapPin },
-    { label: "Nichos ativos", value: "08", delta: "de 12 totais", icon: Target },
-    { label: "Motor de extração", value: scanState === "running" ? "Executando" : scanState === "paused" ? "Pausado" : "Inativo", delta: scanState === "paused" ? "retoma em 02:14" : "timer estocástico", icon: Radio },
+    { label: "Leads coletados", value: leadCount.toLocaleString("pt-BR"), delta: "na execução atual", icon: Users },
+    { label: "Cidades configuradas", value: targetCount.toLocaleString("pt-BR"), delta: "na matriz atual", icon: MapPin },
+    { label: "Nichos ativos", value: categoryCount.toLocaleString("pt-BR"), delta: `${plannedJobs.toLocaleString("pt-BR")} jobs`, icon: Target },
+    { label: "Motor de extração", value: scanState === "running" ? "Executando" : scanState === "paused" ? "Pausado" : "Inativo", delta: scanState === "paused" ? "execução pausada" : "cadência do perfil", icon: Radio },
   ];
   return <>
     <PageIntro eyebrow="Central de inteligência" title="Painel de Controle" description="Monitore a operação, execute varreduras e acompanhe a coleta em tempo real." />
@@ -185,10 +422,16 @@ function DashboardView({ scanState, setScanState, startScan, progress, leadCount
 
     <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
       <div className="panel overflow-hidden">
-        <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-display text-lg font-semibold">Operação de varredura</p><p className="mt-1 text-xs text-muted-foreground">Busca paralela em 12 cidades × 8 nichos</p></div><div className="flex gap-2">{scanState === "running" && <Button variant="outline" onClick={() => setScanState("paused")}><Pause /> Pausar</Button>}{scanState === "paused" && <Button variant="outline" onClick={() => setScanState("running")}><Play /> Retomar</Button>}<Button size="lg" onClick={startScan} className="scan-button"><Zap />{scanState === "running" ? "Reiniciar varredura" : "Iniciar varredura em massa"}</Button></div></div>
+        <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-display text-lg font-semibold">Operação de varredura</p><p className="mt-1 text-xs text-muted-foreground">Execução real via engine · matriz atual: {targetCount} localidades × {categoryCount} nichos</p></div><div className="flex flex-wrap gap-2"><div className="flex items-center border border-border bg-surface p-1">{([["rapido","Rápido"],["balanceado","Balanceado"],["chupacabra","Chupacabra"]] as Array<[EngineProfile,string]>).map(([item,label])=><button key={item} onClick={()=>setProfile(item)} className={cn("px-2.5 py-1.5 font-mono text-[9px] uppercase transition-colors", profile===item ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground")}>{label}</button>)}</div>{scanState === "running" && <><Button variant="outline" onClick={onPause}><Pause /> Pausar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}{scanState === "paused" && <><Button variant="outline" onClick={onResume}><Play /> Retomar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}<Button size="lg" onClick={startScan} className="scan-button"><Zap />{scanState === "running" ? "Nova varredura" : "Iniciar varredura"}</Button></div></div>
         <div className="grid gap-6 p-5 md:grid-cols-[minmax(0,1fr)_220px]">
-          <div><div className="mb-2 flex justify-between text-xs"><span className="text-muted-foreground">Progresso do ciclo</span><span className="font-mono text-primary">{Math.round(progress)}%</span></div><div className="h-2 overflow-hidden bg-muted"><div className="h-full bg-primary transition-all duration-700 shadow-glow" style={{ width: `${progress}%` }} /></div><div className="mt-5 grid grid-cols-3 gap-3">{[["Consultas", "1.248"], ["Válidos", "386"], ["Taxa", "30,9%"]].map(([a,b]) => <div key={a} className="border-l border-border pl-3"><p className="font-mono text-[9px] uppercase text-muted-foreground">{a}</p><p className="mt-1 text-sm font-semibold">{b}</p></div>)}</div></div>
-          <div className="border border-border bg-surface p-4"><div className="flex items-center gap-2 text-xs font-medium"><Clock3 className="size-4 text-info" /> Timer estocástico</div><p className="mt-3 font-mono text-2xl font-bold">04.8<span className="text-xs text-muted-foreground">s</span></p><p className="mt-1 text-[10px] text-muted-foreground">Próxima requisição aleatória</p></div>
+          <div><div className="mb-2 flex justify-between text-xs"><span className="text-muted-foreground">Progresso do ciclo</span><span className="font-mono text-primary">{Math.round(progress)}%</span></div><div className="h-2 overflow-hidden bg-muted"><div className="h-full bg-primary transition-all duration-700 shadow-glow" style={{ width: `${progress}%` }} /></div><div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{[
+  ["Consultas", queryCount.toLocaleString("pt-BR")],
+  ["Coletados", collectedCount.toLocaleString("pt-BR")],
+  ["Únicos", validCount.toLocaleString("pt-BR")],
+  ["Duplicados", duplicateCount.toLocaleString("pt-BR")],
+  ["Aproveitamento", collectedCount ? `${((validCount / collectedCount) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—"],
+].map(([a,b]) => <div key={a} className="border-l border-border pl-3"><p className="font-mono text-[9px] uppercase text-muted-foreground">{a}</p><p className="mt-1 text-sm font-semibold">{b}</p></div>)}</div></div>
+          <div className="border border-border bg-surface p-4"><div className="flex items-center gap-2 text-xs font-medium"><Clock3 className="size-4 text-info" /> Timer estocástico</div><p className="mt-3 font-mono text-2xl font-bold">{stochasticTimer > 0 ? stochasticTimer.toLocaleString("pt-BR") : "—"}<span className="text-xs text-muted-foreground">s</span></p><p className="mt-1 text-[10px] text-muted-foreground">{stochasticTimer > 0 ? "Aguardando o próximo job." : "Ativo somente entre jobs."} · Perfil {profile}</p></div>
         </div>
       </div>
       <div className="panel p-5"><div className="flex items-center justify-between"><div><p className="font-display font-semibold">Saúde do sistema</p><p className="mt-1 text-xs text-muted-foreground">Últimos 15 minutos</p></div><ShieldCheck className="size-5 text-primary" /></div><div className="mt-6 space-y-5">{[["Disponibilidade", 99], ["Qualidade dos proxies", 87], ["Integridade dos dados", 94]].map(([label, val]) => <div key={String(label)}><div className="mb-2 flex justify-between text-xs"><span className="text-muted-foreground">{label}</span><span className="font-mono">{val}%</span></div><div className="h-1 bg-muted"><div className="h-full bg-info" style={{ width: `${val}%` }} /></div></div>)}</div></div>
@@ -198,14 +441,346 @@ function DashboardView({ scanState, setScanState, startScan, progress, leadCount
   </>;
 }
 
-function TargetsView() {
-  const [cities, setCities] = useState(["São Paulo, SP", "Curitiba, PR", "Belo Horizonte, MG", "Campinas, SP"]);
-  const [niches, setNiches] = useState(["Software B2B", "Contabilidade", "Clínicas", "Engenharia"]);
-  const [city, setCity] = useState(""); const [niche, setNiche] = useState(""); const [delay, setDelay] = useState([5]); const [limit, setLimit] = useState([120]);
-  const add = (value: string, list: string[], setter: (v: string[]) => void, clear: (v: string) => void) => { if (value.trim() && !list.includes(value.trim())) setter([...list, value.trim()]); clear(""); };
-  return <><PageIntro eyebrow="Definição de território" title="Matriz de Alvos" description="Combine cidades e segmentos para direcionar o motor de descoberta." action={<span className="hidden border border-primary/20 bg-primary/5 px-3 py-2 font-mono text-xs text-primary sm:block">{cities.length * niches.length} combinações</span>} />
-    <div className="grid gap-4 xl:grid-cols-2"><TagManager title="Cidades alvo" icon={MapPin} items={cities} input={city} setInput={setCity} onAdd={() => add(city,cities,setCities,setCity)} onRemove={(v) => setCities(cities.filter(x=>x!==v))} placeholder="Ex: Florianópolis, SC" /><TagManager title="Nichos e segmentos" icon={Building2} items={niches} input={niche} setInput={setNiche} onAdd={() => add(niche,niches,setNiches,setNiche)} onRemove={(v) => setNiches(niches.filter(x=>x!==v))} placeholder="Ex: Energia solar" /></div>
-    <section className="panel mt-4 p-5"><div className="flex items-center gap-3"><div className="grid size-9 place-items-center bg-info/10 text-info"><ShieldCheck className="size-4"/></div><div><h3 className="font-display font-semibold">Parâmetros de segurança</h3><p className="text-xs text-muted-foreground">Controle de cadência e proteção contra bloqueios</p></div></div><div className="mt-7 grid gap-8 md:grid-cols-2"><RangeSetting label="Intervalo médio entre requisições" value={`${delay[0]} segundos`} min={2} max={15} values={delay} onChange={setDelay}/><RangeSetting label="Limite por sessão" value={`${limit[0]} requisições`} min={40} max={300} values={limit} onChange={setLimit}/></div><div className="mt-7 grid gap-3 sm:grid-cols-3">{["Rotação automática de proxy","Variação de fingerprint","Pausa por detecção de risco"].map((x)=><label key={x} className="flex items-center justify-between border border-border bg-surface px-4 py-3 text-xs"><span>{x}</span><Switch defaultChecked /></label>)}</div></section>
+function TargetsView({
+  targets,
+  setTargets,
+  categories,
+  selectedCategoryIds,
+  setSelectedCategoryIds,
+  customCategories,
+  setCustomCategories,
+  maxJobs,
+  setMaxJobs,
+  startScan,
+  goToDashboard,
+}: {
+  targets: TargetLocation[];
+  setTargets: (targets: TargetLocation[]) => void;
+  categories: Array<[string, string]>;
+  selectedCategoryIds: string[];
+  setSelectedCategoryIds: (ids: string[]) => void;
+  customCategories: Array<[string, string]>;
+  setCustomCategories: (categories: Array<[string, string]>) => void;
+  maxJobs: number;
+  setMaxJobs: (value: number) => void;
+  startScan: () => void;
+  goToDashboard: () => void;
+}) {
+  const [mode, setMode] = useState<"br" | "world">("br");
+  const [stateCode, setStateCode] = useState("");
+  const [states, setStates] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [cities, setCities] = useState<TargetLocation[]>([]);
+  const [worldCities, setWorldCities] = useState<TargetLocation[]>([]);
+  const [search, setSearch] = useState("");
+  const [worldCountry, setWorldCountry] = useState("");
+  const [scope, setScope] = useState<"manual" | "all" | "capitals">("manual");
+  const [minPopulation, setMinPopulation] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [categoryQuery, setCategoryQuery] = useState("");
+
+  const refreshBrazil = async () => {
+    if (!isTauriRuntime()) {
+      setError("Abra o aplicativo Tauri para carregar o catálogo geográfico.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      setCities(await loadBrazilCities(stateCode, search, minPopulation > 0));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshWorld = async () => {
+    if (!isTauriRuntime()) {
+      setError("Abra o aplicativo Tauri para pesquisar cidades internacionais.");
+      return;
+    }
+    if (search.trim().length < 2) return;
+    setLoading(true);
+    setError("");
+    try {
+      setWorldCities(await loadWorldCities(search, worldCountry || undefined));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (mode === "br") {
+      void loadBrazilStates()
+        .then((items) => {
+          setStates(items);
+          setStateCode((current) => current || (items.some((item) => item.code === "SC") ? "SC" : items[0]?.code || ""));
+        })
+        .catch((cause) => {
+          setStates([]);
+          setError(cause instanceof Error ? cause.message : String(cause));
+        });
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode === "br" && stateCode) void refreshBrazil();
+  }, [stateCode, mode]);
+
+  const brazilResults = cities.filter((city) => {
+    if (scope === "capitals" && !city.is_capital) return false;
+    if (minPopulation > 0 && (city.population_2022 ?? 0) < minPopulation) return false;
+    return true;
+  });
+
+  const results = mode === "br" ? brazilResults : worldCities;
+  const allCategories = [...categories, ...customCategories];
+  const normalizedQuery = categoryQuery.trim().toLocaleLowerCase("pt-BR");
+  const selectedCategories = allCategories.filter(([id]) => selectedCategoryIds.includes(id));
+  const suggestions = normalizedQuery
+    ? allCategories
+        .filter(([id, label]) => !selectedCategoryIds.includes(id) && label.toLocaleLowerCase("pt-BR").includes(normalizedQuery))
+        .slice(0, 8)
+    : [];
+  const exactMatch = allCategories.find(([, label]) => label.toLocaleLowerCase("pt-BR") === normalizedQuery);
+  const addCategory = (id: string) => {
+    if (selectedCategoryIds.includes(id)) return;
+    setSelectedCategoryIds([...selectedCategoryIds, id]);
+    setCategoryQuery("");
+  };
+  const addCustomCategory = () => {
+    const label = categoryQuery.trim();
+    if (!label) return;
+    const existing = allCategories.find(([, item]) => item.toLocaleLowerCase("pt-BR") === label.toLocaleLowerCase("pt-BR"));
+    if (existing) {
+      addCategory(existing[0]);
+      return;
+    }
+    const id = `custom:${crypto.randomUUID()}`;
+    setCustomCategories([...customCategories, [id, label]]);
+    addCategory(id);
+  };
+  const removeCategory = (id: string) => {
+    setSelectedCategoryIds(selectedCategoryIds.filter((item) => item !== id));
+  };
+  const activeCategories = selectedCategories;
+  const plannedJobs = targets.length * activeCategories.length;
+  const overLimit = plannedJobs > maxJobs;
+  const selectedVisibleCount = results.filter((city) => targets.some((item) => item.id === city.id)).length;
+
+  const toggleCity = (city: TargetLocation) => {
+    const exists = targets.some((item) => item.id === city.id);
+    setTargets(exists ? targets.filter((item) => item.id !== city.id) : [...targets, city]);
+  };
+
+  const addAllVisible = () => {
+    const incoming = results.slice(0, Math.max(0, Math.floor(maxJobs / Math.max(activeCategories.length, 1))));
+    const merged = new Map(targets.map((target) => [target.id, target]));
+    incoming.forEach((target) => merged.set(target.id, target));
+    const next = [...merged.values()];
+    if (next.length * activeCategories.length > maxJobs) {
+      setError("A seleção excede o limite de jobs. Reduza o número de categorias ou aumente o limite.");
+      return;
+    }
+    setTargets(next);
+    setError("");
+  };
+
+  return <>
+    <PageIntro
+      eyebrow="Definição de território"
+      title="Matriz de Alvos"
+      description="Combine cidades, filtros demográficos e nichos antes de gerar a campanha."
+      action={
+        <div className={cn(
+          "border px-3 py-2 font-mono text-xs",
+          overLimit ? "border-destructive/40 bg-destructive/5 text-destructive" : "border-primary/20 bg-primary/5 text-primary"
+        )}>
+          {plannedJobs.toLocaleString("pt-BR")} jobs
+        </div>
+      }
+    />
+
+    <section className="panel p-5">
+      <div className="flex flex-col gap-4">
+        <div>
+          <p className="field-label">1 · Consultas da campanha</p>
+          <p className="mt-1 text-xs text-muted-foreground">Adicione apenas os nichos que você quer pesquisar. Digite para encontrar uma sugestão ou criar uma consulta personalizada.</p>
+        </div>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={categoryQuery}
+            onChange={(e) => setCategoryQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addCustomCategory()}
+            placeholder={selectedCategories.length ? "Adicionar outra consulta..." : "Digite um nicho para começar..."}
+            className="pl-9"
+            aria-label="Adicionar consulta de nicho"
+          />
+          {suggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden border border-border bg-popover shadow-lg">
+              {suggestions.map(([id, label]) => (
+                <button key={id} type="button" onClick={() => addCategory(id)} className="flex w-full items-center gap-3 border-b border-border/60 px-4 py-3 text-left text-xs transition-colors last:border-b-0 hover:bg-primary/10">
+                  <Plus className="size-3.5 shrink-0 text-primary" />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {normalizedQuery && !exactMatch && suggestions.length === 0 && (
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden border border-border bg-popover shadow-lg">
+              <button type="button" onClick={addCustomCategory} className="flex w-full items-center gap-3 px-4 py-3 text-left text-xs transition-colors hover:bg-primary/10">
+                <Plus className="size-3.5 shrink-0 text-primary" />
+                <span>Adicionar consulta personalizada: <strong>{categoryQuery.trim()}</strong></span>
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="space-y-2">
+          {selectedCategories.map(([id, label], index) => (
+            <div key={id} className="flex items-center gap-3 border border-primary/20 bg-primary/5 px-4 py-3">
+              <span className="font-mono text-[9px] text-primary">{String(index + 1).padStart(2, "0")}</span>
+              <span className="min-w-0 flex-1 text-sm font-medium">{label}</span>
+              <button type="button" onClick={() => removeCategory(id)} className="text-muted-foreground transition-colors hover:text-destructive" aria-label={`Remover consulta ${label}`}>
+                <X className="size-4" />
+              </button>
+            </div>
+          ))}
+          {!selectedCategories.length && (
+            <div className="border border-dashed border-border px-4 py-6 text-center">
+              <p className="text-xs text-muted-foreground">Nenhuma consulta adicionada.</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">Comece digitando um nicho acima.</p>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-between border-t border-border pt-3">
+          <span className="font-mono text-[10px] text-muted-foreground">{selectedCategories.length} {selectedCategories.length === 1 ? "consulta" : "consultas"} adicionada{selectedCategories.length === 1 ? "" : "s"}</span>
+          <span className="font-mono text-[10px] text-muted-foreground">{allCategories.length} sugestões disponíveis</span>
+        </div>
+      </div>
+    </section>
+
+    <section className="panel p-5">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap gap-2">
+          <Button variant={mode === "br" ? "default" : "outline"} onClick={() => setMode("br")}>Brasil · IBGE</Button>
+          <Button variant={mode === "world" ? "default" : "outline"} onClick={() => setMode("world")}>Internacional</Button>
+        </div>
+
+        {mode === "br" ? (
+          <>
+            <div className="grid gap-4 lg:grid-cols-[220px_1fr_220px]">
+              <label className="block">
+                <span className="field-label">UF</span>
+                <Select value={stateCode} onValueChange={setStateCode} disabled={!states.length}>
+                  <SelectTrigger className="field mt-2"><SelectValue placeholder="Selecione a UF" /></SelectTrigger>
+                  <SelectContent>
+                    {states.map((state) => <SelectItem key={state.code} value={state.code}>{state.code} — {state.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </label>
+              <label className="block">
+                <span className="field-label">Buscar município</span>
+                <input className="field mt-2" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void refreshBrazil()} placeholder="Ex: Blumenau" />
+              </label>
+              <label className="block">
+                <span className="field-label">Escopo</span>
+                <Select value={scope} onValueChange={(value) => setScope(value as typeof scope)}>
+                  <SelectTrigger className="field mt-2"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="manual">Seleção manual</SelectItem>
+                    <SelectItem value="all">Todos os municípios</SelectItem>
+                    <SelectItem value="capitals">Capital da UF</SelectItem>
+                  </SelectContent>
+                </Select>
+              </label>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-[220px_1fr_auto]">
+              <label className="block">
+                <span className="field-label">População mínima · Censo 2022</span>
+                <input className="field mt-2" type="number" min={0} step={1000} value={minPopulation} onChange={(e) => setMinPopulation(Math.max(0, Number(e.target.value) || 0))} />
+              </label>
+              <div className="flex items-end gap-2">
+                <Button variant="outline" onClick={() => void refreshBrazil()} disabled={loading}>{loading ? "Carregando..." : "Atualizar municípios"}</Button>
+                <Button variant="outline" onClick={addAllVisible} disabled={!results.length || !activeCategories.length}>Adicionar filtrados</Button>
+                <Button variant="outline" onClick={() => setTargets([])} disabled={!targets.length}>Limpar seleção</Button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-[1fr_220px_auto]">
+            <label className="block">
+              <span className="field-label">Buscar cidade no mundo</span>
+              <input className="field mt-2" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && void refreshWorld()} placeholder="Ex: Berlin, Miami, Tokyo" />
+            </label>
+            <label className="block">
+              <span className="field-label">País · ISO 3166</span>
+              <input className="field mt-2 uppercase" maxLength={2} value={worldCountry} onChange={(e) => setWorldCountry(e.target.value.toUpperCase())} placeholder="Opcional" />
+            </label>
+            <Button onClick={() => void refreshWorld()} disabled={loading}>{loading ? "Buscando..." : "Buscar cidades"}</Button>
+          </div>
+        )}
+
+        {error && <p className="border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">{error}</p>}
+
+        <div className="max-h-[420px] overflow-y-auto overscroll-contain border border-border bg-background/40 p-2 pr-1">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {results.map((city) => (
+            <button key={city.id} onClick={() => toggleCity(city)} className={cn(
+              "border p-3 text-left transition-colors",
+              targets.some((item) => item.id === city.id) ? "border-primary bg-primary/10" : "border-border bg-surface hover:border-primary/40"
+            )}>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium">{city.city}</span>
+                {targets.some((item) => item.id === city.id) && <Check className="size-4 text-primary" />}
+              </div>
+              <span className="mt-1 block font-mono text-[9px] uppercase text-muted-foreground">
+                {city.state_code || city.country} · {city.state_name || "Internacional"}
+              </span>
+              {city.population_2022 != null && <span className="mt-1 block font-mono text-[9px] text-info">{city.population_2022.toLocaleString("pt-BR")} hab. · {city.is_capital ? "capital" : "município"}</span>}
+            </button>
+          ))}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section className="panel mt-4 p-5">
+      <div className="grid gap-4 lg:grid-cols-[1fr_220px_auto] lg:items-end">
+        <div>
+          <h3 className="font-display font-semibold">Campanha planejada</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{targets.length} localidades × {activeCategories.length} nichos = {plannedJobs.toLocaleString("pt-BR")} jobs previstos</p>
+        </div>
+        <label className="block">
+          <span className="field-label">Limite máximo de jobs</span>
+          <input className="field mt-2" type="number" min={1} max={10000} step={100} value={maxJobs} onChange={(e) => setMaxJobs(Math.min(10000, Math.max(1, Number(e.target.value) || 1)))} />
+        </label>
+        <Button variant="outline" onClick={() => { setTargets([]); setError(""); }} disabled={!targets.length}>Limpar</Button>
+      </div>
+
+      {overLimit && <p className="mt-4 border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">A campanha ultrapassa o limite. O engine também bloqueia matrizes acima de 10.000 jobs.</p>}
+
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+        <p className="text-xs text-muted-foreground">{targets.length} localidades × {activeCategories.length} nichos = <span className="font-mono text-primary">{plannedJobs.toLocaleString("pt-BR")} jobs</span></p>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={goToDashboard}>Voltar ao painel</Button>
+          <Button onClick={startScan} disabled={!targets.length || !activeCategories.length || overLimit}><Zap /> Iniciar varredura</Button>
+        </div>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {targets.map((target) => (
+          <button key={target.id} onClick={() => toggleCity(target)} className="border border-primary/20 bg-primary/5 px-3 py-2 text-xs hover:border-primary/50">
+            {target.city} / {target.state_code || target.country}
+          </button>
+        ))}
+      </div>
+    </section>
   </>;
 }
 
@@ -223,7 +798,12 @@ function LeadsView() {
   </>;
 }
 
-function SelectField({value,setValue,options}:{value:string;setValue:(v:string)=>void;options:string[]}) { return <label className="relative"><select className="field appearance-none pr-8" value={value} onChange={e=>setValue(e.target.value)}>{options.map(o=><option key={o}>{o}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/></label>; }
+function SelectField({value,setValue,options}:{value:string;setValue:(v:string)=>void;options:string[]}) {
+  return <Select value={value} onValueChange={setValue}>
+    <SelectTrigger className="field"><SelectValue /></SelectTrigger>
+    <SelectContent>{options.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent>
+  </Select>;
+}
 function StatusBadge({status}:{status:string}) { return <span className={cn("status-badge", status==="Qualificado"&&"status-success", status==="Em análise"&&"status-info", status==="Descartado"&&"status-muted")}>{status}</span>; }
 
 function OutreachView() {

@@ -7,10 +7,11 @@ import {
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { EngineRuntime } from "../components/engine-runtime";
 
 function NotFoundComponent() {
   return (
@@ -72,6 +73,41 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
+function SplashScreen() {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setVisible(false), 1400);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#071016]"
+      role="status"
+      aria-label="Iniciando Chupacabra System"
+    >
+      <div className="flex flex-col items-center gap-5 px-8 text-center">
+        <img
+          src="/chupacabra-splash.png"
+          alt="Chupacabra System"
+          className="h-auto w-[min(72vw,360px)] max-w-full object-contain"
+        />
+        <div>
+          <p className="font-display text-xl font-bold tracking-[0.18em] text-white">
+            CHUPACABRA SYSTEM
+          </p>
+          <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.28em] text-white/45">
+            B2B Prospect Engine
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
@@ -119,6 +155,8 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <SplashScreen />
+      <EngineRuntime />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>
