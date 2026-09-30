@@ -120,7 +120,7 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   useEffect(() => {
-    if (!(" __TAURI_INTERNALS__" in window)) return;
+    if (!("__TAURI_INTERNALS__" in window)) return;
 
     void (async () => {
       try {
