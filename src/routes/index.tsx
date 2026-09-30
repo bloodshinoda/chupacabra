@@ -168,7 +168,7 @@ function ChupacabraDashboard() {
     ["ecommerce", "E-commerce"],
     ["marketplaces", "Marketplaces"],
   ]);
-  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>(categories.map(([id]) => id));
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [customCategories, setCustomCategories] = useState<Array<[string, string]>>([]);
 
   useEffect(() => {
@@ -539,24 +539,34 @@ function TargetsView({
   const results = mode === "br" ? brazilResults : worldCities;
   const allCategories = [...categories, ...customCategories];
   const normalizedQuery = categoryQuery.trim().toLocaleLowerCase("pt-BR");
-  const filteredCategories = allCategories.filter(([, label]) =>
-    !normalizedQuery || label.toLocaleLowerCase("pt-BR").includes(normalizedQuery)
-  );
-  const activeCategories = allCategories.filter(([id]) => selectedCategoryIds.includes(id));
+  const selectedCategories = allCategories.filter(([id]) => selectedCategoryIds.includes(id));
+  const suggestions = normalizedQuery
+    ? allCategories
+        .filter(([id, label]) => !selectedCategoryIds.includes(id) && label.toLocaleLowerCase("pt-BR").includes(normalizedQuery))
+        .slice(0, 8)
+    : [];
+  const exactMatch = allCategories.find(([, label]) => label.toLocaleLowerCase("pt-BR") === normalizedQuery);
+  const addCategory = (id: string) => {
+    if (selectedCategoryIds.includes(id)) return;
+    setSelectedCategoryIds([...selectedCategoryIds, id]);
+    setCategoryQuery("");
+  };
   const addCustomCategory = () => {
     const label = categoryQuery.trim();
     if (!label) return;
     const existing = allCategories.find(([, item]) => item.toLocaleLowerCase("pt-BR") === label.toLocaleLowerCase("pt-BR"));
     if (existing) {
-      if (!selectedCategoryIds.includes(existing[0])) setSelectedCategoryIds([...selectedCategoryIds, existing[0]]);
-      setCategoryQuery("");
+      addCategory(existing[0]);
       return;
     }
     const id = `custom:${crypto.randomUUID()}`;
     setCustomCategories([...customCategories, [id, label]]);
-    setSelectedCategoryIds([...selectedCategoryIds, id]);
-    setCategoryQuery("");
+    addCategory(id);
   };
+  const removeCategory = (id: string) => {
+    setSelectedCategoryIds(selectedCategoryIds.filter((item) => item !== id));
+  };
+  const activeCategories = selectedCategories;
   const plannedJobs = targets.length * activeCategories.length;
   const overLimit = plannedJobs > maxJobs;
   const selectedVisibleCount = results.filter((city) => targets.some((item) => item.id === city.id)).length;
@@ -596,58 +606,60 @@ function TargetsView({
 
     <section className="panel p-5">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="field-label">1 · Nichos da campanha</p>
-            <p className="mt-1 text-xs text-muted-foreground">Escolha uma sugestão ou digite qualquer nicho para criar uma consulta personalizada.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-[10px] text-muted-foreground">{activeCategories.length}/{allCategories.length} ativos</span>
-            <Button variant="ghost" size="sm" onClick={() => setSelectedCategoryIds(allCategories.map(([id]) => id))}>Todos</Button>
-            <Button variant="ghost" size="sm" onClick={() => setSelectedCategoryIds([])}>Nenhum</Button>
-          </div>
+        <div>
+          <p className="field-label">1 · Consultas da campanha</p>
+          <p className="mt-1 text-xs text-muted-foreground">Adicione apenas os nichos que você quer pesquisar. Digite para encontrar uma sugestão ou criar uma consulta personalizada.</p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={categoryQuery}
-              onChange={(e) => setCategoryQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addCustomCategory()}
-              placeholder="Buscar nicho ou digitar um novo..."
-              className="pl-9"
-              aria-label="Buscar ou adicionar nicho"
-            />
-          </div>
-          <Button onClick={addCustomCategory} disabled={!categoryQuery.trim()}><Plus /> Adicionar nicho</Button>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={categoryQuery}
+            onChange={(e) => setCategoryQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addCustomCategory()}
+            placeholder={selectedCategories.length ? "Adicionar outra consulta..." : "Digite um nicho para começar..."}
+            className="pl-9"
+            aria-label="Adicionar consulta de nicho"
+          />
+          {suggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden border border-border bg-popover shadow-lg">
+              {suggestions.map(([id, label]) => (
+                <button key={id} type="button" onClick={() => addCategory(id)} className="flex w-full items-center gap-3 border-b border-border/60 px-4 py-3 text-left text-xs transition-colors last:border-b-0 hover:bg-primary/10">
+                  <Plus className="size-3.5 shrink-0 text-primary" />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {normalizedQuery && !exactMatch && (
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden border border-border bg-popover shadow-lg">
+              <button type="button" onClick={addCustomCategory} className="flex w-full items-center gap-3 px-4 py-3 text-left text-xs transition-colors hover:bg-primary/10">
+                <Plus className="size-3.5 shrink-0 text-primary" />
+                <span>Adicionar consulta personalizada: <strong>{categoryQuery.trim()}</strong></span>
+              </button>
+            </div>
+          )}
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredCategories.map(([id, label]) => {
-            const active = selectedCategoryIds.includes(id);
-            return <button
-              key={id}
-              type="button"
-              aria-pressed={active}
-              onClick={() => setSelectedCategoryIds(active ? selectedCategoryIds.filter((item) => item !== id) : [...selectedCategoryIds, id])}
-              className={cn(
-                "border p-3 text-left transition-colors",
-                active
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:border-primary/40"
-              )}
-            >
-              <span className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium">{label}</span>
-                {active && <Check className="size-4" />}
-              </span>
-            </button>;
-          })}
+        <div className="space-y-2">
+          {selectedCategories.map(([id, label], index) => (
+            <div key={id} className="flex items-center gap-3 border border-primary/20 bg-primary/5 px-4 py-3">
+              <span className="font-mono text-[9px] text-primary">{String(index + 1).padStart(2, "0")}</span>
+              <span className="min-w-0 flex-1 text-sm font-medium">{label}</span>
+              <button type="button" onClick={() => removeCategory(id)} className="text-muted-foreground transition-colors hover:text-destructive" aria-label={`Remover consulta ${label}`}>
+                <X className="size-4" />
+              </button>
+            </div>
+          ))}
+          {!selectedCategories.length && (
+            <div className="border border-dashed border-border px-4 py-6 text-center">
+              <p className="text-xs text-muted-foreground">Nenhuma consulta adicionada.</p>
+              <p className="mt-1 text-[10px] text-muted-foreground">Comece digitando um nicho acima.</p>
+            </div>
+          )}
         </div>
-        {!activeCategories.length && (
-          <p className="border border-warning/30 bg-warning/5 p-3 text-xs text-warning">
-            Selecione ao menos um nicho para montar a campanha.
-          </p>
-        )}
+        <div className="flex items-center justify-between border-t border-border pt-3">
+          <span className="font-mono text-[10px] text-muted-foreground">{selectedCategories.length} {selectedCategories.length === 1 ? "consulta" : "consultas"} adicionada{selectedCategories.length === 1 ? "" : "s"}</span>
+          <span className="font-mono text-[10px] text-muted-foreground">{allCategories.length} sugestões disponíveis</span>
+        </div>
       </div>
     </section>
 
