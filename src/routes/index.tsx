@@ -630,7 +630,7 @@ function TargetsView({
               ))}
             </div>
           )}
-          {normalizedQuery && !exactMatch && (
+          {normalizedQuery && !exactMatch && suggestions.length === 0 && (
             <div className="absolute left-0 right-0 top-full z-20 mt-1 overflow-hidden border border-border bg-popover shadow-lg">
               <button type="button" onClick={addCustomCategory} className="flex w-full items-center gap-3 px-4 py-3 text-left text-xs transition-colors hover:bg-primary/10">
                 <Plus className="size-3.5 shrink-0 text-primary" />
