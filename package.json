@@ -7,7 +7,7 @@
     "dev": "vite dev",
     "build": "vite build",
     "build:dev": "vite build --mode development",
-    "build:engine": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-engine.ps1",
+    "build:engine": "node scripts/build-engine.mjs",
     "build:desktop": "npm run build && npm run build:engine",
     "preview": "vite preview",
     "lint": "eslint .",
@@ -92,4 +92,4 @@
     "typescript-eslint": "^8.56.1",
     "vite": "8.1.5"
   }
-}
+}\n
