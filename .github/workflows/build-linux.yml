@@ -1,0 +1,82 @@
+name: Build Linux
+
+on:
+  push:
+    branches:
+      - main
+      - feature/engine-p0
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-linux-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux:
+    name: Compilar Chupacabra System para Linux
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v5
+
+      - name: Instalar dependências nativas do Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y             libwebkit2gtk-4.1-dev             build-essential             curl             wget             file             libxdo-dev             libssl-dev             libayatana-appindicator3-dev             librsvg2-dev
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Configurar Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Configurar Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache do Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Instalar dependências do frontend
+        run: npm ci
+
+      - name: Instalar dependências Python do engine
+        run: python -m pip install -r requirements-build.txt
+
+      - name: Validar testes Python
+        run: python -m unittest discover -s tests -v
+
+      - name: Validar build do frontend
+        run: npm run build
+
+      - name: Gerar pacote DEB
+        run: npx tauri build --bundles deb
+
+      - name: Publicar pacote DEB como artifact de CI
+        uses: actions/upload-artifact@v4
+        with:
+          name: Chupacabra-System-Linux
+          path: src-tauri/target/release/bundle/deb/*.deb
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publicar pacote DEB na Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: src-tauri/target/release/bundle/deb/*.deb
+          generate_release_notes: true
+          fail_on_unmatched_files: false
