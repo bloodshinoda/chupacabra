@@ -24,8 +24,8 @@
       {
         "label": "splashscreen",
         "url": "/splashscreen.html",
-        "width": 480,
-        "height": 480,
+        "width": 360,
+        "height": 360,
         "decorations": false,
         "transparent": true,
         "shadow": false,
@@ -37,7 +37,13 @@
         "maximizable": false,
         "center": true,
         "focus": false,
-        "visible": true
+        "visible": true,
+        "backgroundColor": [
+          0,
+          0,
+          0,
+          0
+        ]
       }
     ],
     "security": {
@@ -47,4 +53,4 @@
   "bundle": {
     "active": false
   }
-}
+}\n
