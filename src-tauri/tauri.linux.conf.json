@@ -1,0 +1,9 @@
+{
+  "bundle": {
+    "active": true,
+    "targets": ["deb"],
+    "resources": {
+      "../engine/dist/chupacabra-engine": "engine/chupacabra-engine"
+    }
+  }
+}
