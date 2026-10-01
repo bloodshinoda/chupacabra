@@ -33,6 +33,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/lib/i18n";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -94,6 +95,7 @@ function ChupacabraDashboard() {
   const [scanState, setScanState] = useState<ScanState>("idle");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const { locale, setLocale, t } = useI18n();
   const [logs, setLogs] = useState<string[]>([]);
   const [engineOnline, setEngineOnline] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -178,6 +180,10 @@ function ChupacabraDashboard() {
   ]);
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [customCategories, setCustomCategories] = useState<Array<[string, string]>>([]);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -303,11 +309,11 @@ function ChupacabraDashboard() {
   }, []);
 
   const startScan = async (): Promise<boolean> => {
-    setLogs((current) => [...current, `[${new Date().toLocaleTimeString("pt-BR")}] Iniciando varredura com perfil ${profile}.`]);
+    setLogs((current) => [...current, `[${new Date().toLocaleTimeString(locale)}] ${t("logs.starting")} · ${profile}.`]);
     setProgress(5);
 
     if (!isTauriRuntime()) {
-      setLogs((current) => [...current, `[${new Date().toLocaleTimeString("pt-BR")}] Abra o aplicativo Tauri para executar o engine.`]);
+      setLogs((current) => [...current, `[${new Date().toLocaleTimeString(locale)}] ${t("logs.openDesktop")}`]);
       return false;
     }
 
@@ -380,7 +386,7 @@ function ChupacabraDashboard() {
           {view === "outreach" && <OutreachView />}
           {view === "reports" && <ReportsView />}
         </div>
-        <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} />
+        <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} locale={locale} setLocale={setLocale} t={t} />
       </main>
     </div>
   );
@@ -420,56 +426,63 @@ function Sidebar({ view, setView, open, setOpen, scanState, engineOnline, onAbou
 }
 
 
-function AboutDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+function AboutDialog({
+  open,
+  onOpenChange,
+  locale,
+  setLocale,
+  t,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  locale: "pt-BR" | "en-US";
+  setLocale: (locale: "pt-BR" | "en-US") => void;
+  t: (key: string) => string;
+}) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md border-primary/20 bg-[#0b151b] text-foreground">
         <DialogHeader className="text-left">
-          <div className="mb-3 flex items-center gap-3">
-            <div className="grid size-10 place-items-center border border-primary/30 bg-primary/10 text-primary">
-              <Info className="size-5" />
+          <div className="mb-3 flex items-center gap-4">
+            <div className="grid size-16 shrink-0 place-items-center overflow-hidden border border-primary/30 bg-primary/10 p-2 shadow-glow">
+              <img src="/icon.png" alt="Chupacabra" className="size-full object-contain" />
             </div>
             <div>
               <DialogTitle className="font-display text-xl tracking-wide">Chupacabra System</DialogTitle>
-              <DialogDescription className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em]">
-                B2B Prospect Engine
-              </DialogDescription>
+              <DialogDescription className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em]">B2B Prospect Engine</DialogDescription>
             </div>
           </div>
         </DialogHeader>
-
         <div className="space-y-4">
           <div className="border border-border bg-surface p-4">
             <div className="flex items-center justify-between">
-              <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Versão</span>
+              <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{t("about.version")}</span>
               <span className="font-mono text-sm font-semibold text-primary">0.3.1</span>
             </div>
             <div className="mt-3 flex items-center justify-between">
-              <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Engine</span>
-              <span className="text-xs">Python + Tauri</span>
+              <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{t("about.engine")}</span>
+              <span className="text-xs">Python + Rust/Tauri</span>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-4">
+              <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{t("about.language")}</span>
+              <div className="flex border border-border bg-background p-1">
+                {([["pt-BR", "PT-BR"], ["en-US", "EN-US"]] as const).map(([value, label]) => (
+                  <button key={value} type="button" onClick={() => setLocale(value)} className={cn("px-2 py-1 font-mono text-[9px] uppercase transition-colors", locale === value ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground")}>{label}</button>
+                ))}
+              </div>
             </div>
           </div>
-
-          <p className="text-sm leading-6 text-muted-foreground">
-            Ferramenta desktop para inteligência de mercado, prospecção B2B,
-            coleta de dados e geração de relatórios.
-          </p>
-
+          <p className="text-sm leading-6 text-muted-foreground">{t("about.description")}</p>
           <div className="border-t border-border pt-4">
-            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">Projeto</p>
-            <a
-              href="https://github.com/bloodshinoda/chupacabra"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-flex items-center gap-2 text-xs text-primary transition-colors hover:underline"
-            >
-              GitHub · Chupacabra System
-            </a>
+            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{t("about.author")}</p>
+            <p className="mt-1 text-sm font-semibold">Vilson de Oliveira Junior</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t("about.authorRole")}</p>
           </div>
-
-          <p className="pt-1 text-center font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground/60">
-            Caçar dados. Encontrar oportunidades.
-          </p>
+          <div className="border-t border-border pt-4">
+            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{t("about.project")}</p>
+            <a href="https://github.com/bloodshinoda/chupacabra" target="_blank" rel="noreferrer" className="mt-2 inline-flex items-center gap-2 text-xs text-primary transition-colors hover:underline">GitHub · Chupacabra System</a>
+          </div>
+          <p className="pt-1 text-center font-mono text-[9px] uppercase tracking-[0.16em] text-muted-foreground/60">{t("about.tagline")}</p>
         </div>
       </DialogContent>
     </Dialog>
@@ -481,6 +494,7 @@ function PageIntro({ eyebrow, title, description, action }: { eyebrow: string; t
 }
 
 function DashboardView({ scanState, setScanState, startScan, onPause, onResume, onCancel, profile, setProfile, progress, leadCount, queryCount, collectedCount, validCount, duplicateCount, stochasticTimer, logs, targetCount, categoryCount, plannedJobs }: { scanState: ScanState; setScanState: (s: ScanState) => void; startScan: () => void; onPause: () => void; onResume: () => void; onCancel: () => void; profile: EngineProfile; setProfile: (p: EngineProfile) => void; progress: number; leadCount: number; queryCount: number; collectedCount: number; validCount: number; duplicateCount: number; stochasticTimer: number; logs: string[]; targetCount: number; categoryCount: number; plannedJobs: number }) {
+  const { t } = useI18n();
   const metrics = [
     { label: "Leads coletados", value: leadCount.toLocaleString("pt-BR"), delta: "na execução atual", icon: Users },
     { label: "Cidades configuradas", value: targetCount.toLocaleString("pt-BR"), delta: "na matriz atual", icon: MapPin },
@@ -493,7 +507,7 @@ function DashboardView({ scanState, setScanState, startScan, onPause, onResume, 
 
     <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
       <div className="panel overflow-hidden">
-        <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-display text-lg font-semibold">Operação de varredura</p><p className="mt-1 text-xs text-muted-foreground">Execução real via engine · matriz atual: {targetCount} localidades × {categoryCount} nichos</p></div><div className="flex flex-wrap gap-2"><div className="flex items-center border border-border bg-surface p-1">{([["rapido","Rápido"],["balanceado","Balanceado"],["chupacabra","Chupacabra"]] as Array<[EngineProfile,string]>).map(([item,label])=><button key={item} onClick={()=>setProfile(item)} className={cn("px-2.5 py-1.5 font-mono text-[9px] uppercase transition-colors", profile===item ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground")}>{label}</button>)}</div>{scanState === "running" && <><Button variant="outline" onClick={onPause}><Pause /> Pausar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}{scanState === "paused" && <><Button variant="outline" onClick={onResume}><Play /> Retomar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}<Button size="lg" onClick={startScan} className="scan-button"><Zap />{scanState === "running" ? "Nova varredura" : "Iniciar varredura"}</Button></div></div>
+        <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-display text-lg font-semibold">Operação de varredura</p><p className="mt-1 text-xs text-muted-foreground">Execução real via engine · matriz atual: {targetCount} localidades × {categoryCount} nichos</p></div><div className="flex flex-wrap gap-2"><div className="flex items-center border border-border bg-surface p-1">{([["rapido","Rápido"],["balanceado","Balanceado"],["chupacabra","Chupacabra"]] as Array<[EngineProfile,string]>).map(([item,label])=><button key={item} onClick={()=>setProfile(item)} className={cn("px-2.5 py-1.5 font-mono text-[9px] uppercase transition-colors", profile===item ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground")}>{label}</button>)}</div>{scanState === "running" && <><Button variant="outline" onClick={onPause}><Pause /> Pausar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}{scanState === "paused" && <><Button variant="outline" onClick={onResume}><Play /> Retomar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}<Button size="lg" onClick={startScan} className="scan-button"><Zap />{scanState === "running" ? t("actions.chuparAgain") : t("actions.chupar")}</Button></div></div>
         <div className="grid gap-6 p-5 md:grid-cols-[minmax(0,1fr)_220px]">
           <div><div className="mb-2 flex justify-between text-xs"><span className="text-muted-foreground">Progresso do ciclo</span><span className="font-mono text-primary">{Math.round(progress)}%</span></div><div className="h-2 overflow-hidden bg-muted"><div className="h-full bg-primary transition-all duration-700 shadow-glow" style={{ width: `${progress}%` }} /></div><div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{[
   ["Consultas", queryCount.toLocaleString("pt-BR")],
