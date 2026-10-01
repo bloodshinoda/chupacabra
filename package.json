@@ -11,7 +11,10 @@
     "build:desktop": "npm run build && npm run build:engine",
     "preview": "vite preview",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "prepare:assets": "node scripts/prepare-assets.mjs",
+    "predev": "npm run prepare:assets",
+    "prebuild": "npm run prepare:assets"
   },
   "overrides": {
     "rolldown": "1.2.1"
