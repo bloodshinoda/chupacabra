@@ -5,33 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Chupacabra</title>
   <style>
-    html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: transparent;
-    }
-    body {
-      display: grid;
-      place-items: center;
-    }
-    svg {
-      width: 82%;
-      height: 82%;
-      overflow: visible;
-      filter: drop-shadow(0 0 18px rgba(74, 222, 128, .28));
-    }
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: transparent; }
+    body { display: grid; place-items: center; }
+    img { display: block; width: min(360px, 82vw); height: min(360px, 82vh); object-fit: contain; filter: drop-shadow(0 0 22px rgba(74, 222, 128, .30)); user-select: none; -webkit-user-drag: none; }
   </style>
 </head>
-<body aria-label="Chupacabra System">
-  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Chupacabra">
-    <path d="M116 383c-12-72 2-151 49-201 33-36 73-53 91-54 18-1 59 17 92 54 47 51 61 130 48 201-13 74-62 100-140 100s-127-26-140-100Z" fill="#071016" stroke="#4ADE80" stroke-width="10"/>
-    <path d="M167 214 123 161l61 23m161 30 44-53-61 23" fill="#071016" stroke="#4ADE80" stroke-width="10" stroke-linejoin="round"/>
-    <path d="M183 263c35-31 111-31 146 0" fill="none" stroke="#4ADE80" stroke-width="10" stroke-linecap="round"/>
-    <path d="M198 267h40l-16 25h-40zm116 0h-40l16 25h40z" fill="#4ADE80"/>
-    <path d="M256 301v61m-54-18 32 20m22-2 32-20" fill="none" stroke="#4ADE80" stroke-width="8" stroke-linecap="round"/>
-    <path d="M210 390c22 12 70 12 92 0" fill="none" stroke="#ef4444" stroke-width="7" stroke-linecap="round" opacity=".8"/>
-  </svg>
-</body>
+<body aria-label="Chupacabra System"><img src="/icon.png" alt="Chupacabra"></body>
 </html>
