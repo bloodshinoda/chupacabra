@@ -55,6 +55,19 @@ fn data_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(root)
 }
 
+fn reports_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let root = app
+        .path()
+        .document_dir()
+        .map_err(|error| format!("failed to resolve Documents directory: {error}"))?
+        .join("Chupacabra System")
+        .join("Relatórios");
+
+    std::fs::create_dir_all(&root)
+        .map_err(|error| format!("failed to create Chupacabra reports directory: {error}"))?;
+    Ok(root)
+}
+
 fn bundled_engine(app: &tauri::AppHandle) -> Result<Option<PathBuf>, String> {
     if let Ok(path) = std::env::var("CHUPACABRA_ENGINE") {
         let path = PathBuf::from(path);
@@ -222,11 +235,27 @@ pub fn engine_command(
     let mut payload = serde_json::Map::new();
     payload.insert(
         "command".into(),
-        serde_json::Value::String(command.command),
+        serde_json::Value::String(command.command.clone()),
     );
 
     if let serde_json::Value::Object(fields) = command.payload {
         payload.extend(fields);
+    }
+
+    if command.command == "start_run" {
+        payload.insert(
+            "runs_dir".into(),
+            serde_json::Value::String(
+                data_root(&app)?
+                    .join("runs")
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
+        );
+        payload.insert(
+            "reports_dir".into(),
+            serde_json::Value::String(reports_root(&app)?.to_string_lossy().into_owned()),
+        );
     }
 
     serde_json::to_writer(&mut *handle, &serde_json::Value::Object(payload))
