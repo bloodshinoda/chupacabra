@@ -245,3 +245,8 @@ export async function cancelRun(): Promise<void> {
 export async function engineStatus(): Promise<string> {
   return invoke<string>("engine_status");
 }
+
+export async function stopEngine(): Promise<void> {
+  if (!isTauriRuntime()) return;
+  await invoke("engine_stop");
+}
