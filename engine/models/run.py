@@ -31,6 +31,7 @@ class ProspectingRun:
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
     report_file: Optional[str] = None
+    lang: str = "pt"
 
     def start(self) -> None:
         self.status = RunStatus.RUNNING
