@@ -271,6 +271,7 @@ class ProspectingRunner:
             return
 
         report_path = self.store.report_path(run.id)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
         report_input = self.store.run_dir(run.id) / "_report_input"
         report_input.mkdir(parents=True, exist_ok=True)
 
