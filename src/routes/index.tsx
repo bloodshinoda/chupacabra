@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n";
+import { BUSINESS_NICHES } from "@/lib/niches";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -108,76 +109,7 @@ function ChupacabraDashboard() {
   const [profile, setProfile] = useState<EngineProfile>("balanceado");
   const [targets, setTargets] = useState<TargetLocation[]>([]);
   const [maxJobs, setMaxJobs] = useState(5000);
-  const [categories] = useState<Array<[string, string]>>([
-    ["agencias_publicidade", "Agências de publicidade"],
-    ["graficas", "Gráficas"],
-    ["graficas_rapidas", "Gráficas rápidas"],
-    ["comunicacao_visual", "Comunicação visual"],
-    ["marketing_digital", "Agências de marketing digital"],
-    ["brindes_corporativos", "Brindes corporativos"],
-    ["eventos_corporativos", "Organização de eventos corporativos"],
-    ["serigrafia_estamparia", "Serigrafia e estamparia"],
-    ["imobiliarias", "Imobiliárias"],
-    ["concessionarias", "Concessionárias de veículos"],
-    ["construtoras", "Construtoras"],
-    ["clinicas_odontologicas", "Clínicas odontológicas"],
-    ["academias", "Academias"],
-    ["restaurantes", "Restaurantes"],
-    ["bares", "Bares"],
-    ["hoteis", "Hotéis"],
-    ["pousadas", "Pousadas"],
-    ["turismo", "Agências de turismo"],
-    ["escolas", "Escolas particulares"],
-    ["cursos_profissionalizantes", "Cursos profissionalizantes"],
-    ["faculdades", "Faculdades"],
-    ["clinicas_medicas", "Clínicas médicas"],
-    ["clinicas_veterinarias", "Clínicas veterinárias"],
-    ["hospitais", "Hospitais"],
-    ["farmacias", "Farmácias"],
-    ["laboratorios", "Laboratórios"],
-    ["psicologia", "Psicologia"],
-    ["nutricao", "Nutrição"],
-    ["fisioterapia", "Fisioterapia"],
-    ["advocacia", "Escritórios de advocacia"],
-    ["contabilidade", "Contabilidade"],
-    ["consultoria", "Consultorias"],
-    ["recursos_humanos", "Recursos humanos"],
-    ["seguros", "Seguradoras e corretores de seguros"],
-    ["bancos", "Bancos"],
-    ["concessionarias_motos", "Concessionárias de motos"],
-    ["oficinas", "Oficinas mecânicas"],
-    ["autopecas", "Autopeças"],
-    ["transportadoras", "Transportadoras"],
-    ["logistica", "Empresas de logística"],
-    ["industria_metalurgica", "Metalúrgicas"],
-    ["industria_textil", "Indústrias têxteis"],
-    ["industria_alimenticia", "Indústrias alimentícias"],
-    ["industria_moveleira", "Indústrias moveleiras"],
-    ["agropecuaria", "Agropecuárias"],
-    ["cooperativas", "Cooperativas"],
-    ["distribuidoras", "Distribuidoras"],
-    ["supermercados", "Supermercados"],
-    ["lojas_materiais_construcao", "Lojas de materiais de construção"],
-    ["lojas_moveis", "Lojas de móveis"],
-    ["lojas_eletrodomesticos", "Lojas de eletrodomésticos"],
-    ["moda", "Lojas de moda"],
-    ["joalherias", "Joalherias"],
-    ["pet_shops", "Pet shops"],
-    ["salões_beleza", "Salões de beleza"],
-    ["estetica", "Clínicas de estética"],
-    ["fotografia", "Fotografia"],
-    ["producao_video", "Produção audiovisual"],
-    ["arquitetura", "Arquitetura"],
-    ["engenharia", "Engenharia"],
-    ["energia_solar", "Energia solar"],
-    ["seguranca", "Segurança privada"],
-    ["limpeza", "Empresas de limpeza"],
-    ["tecnologia", "Empresas de tecnologia"],
-    ["software", "Software e SaaS"],
-    ["provedores_internet", "Provedores de internet"],
-    ["ecommerce", "E-commerce"],
-    ["marketplaces", "Marketplaces"],
-  ]);
+  const categories = BUSINESS_NICHES;
   const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [customCategories, setCustomCategories] = useState<Array<[string, string]>>([]);
 
@@ -853,7 +785,7 @@ function TargetsView({
         <p className="text-xs text-muted-foreground">{targets.length} localidades × {activeCategories.length} nichos = <span className="font-mono text-primary">{plannedJobs.toLocaleString("pt-BR")} jobs</span></p>
         <div className="flex gap-2">
           <Button variant="outline" onClick={goToDashboard}>Voltar ao painel</Button>
-          <Button onClick={startScan} disabled={!targets.length || !activeCategories.length || overLimit}><Zap /> Iniciar varredura</Button>
+          <Button onClick={startScan} disabled={!targets.length || !activeCategories.length || overLimit}><Zap /> CHUPAR</Button>
         </div>
       </div>
 
