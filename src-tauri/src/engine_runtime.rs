@@ -14,6 +14,15 @@ pub struct EngineState {
     stdin: Mutex<Option<ChildStdin>>,
 }
 
+impl EngineState {
+    pub fn new() -> Self {
+        Self {
+            process: Mutex::new(None),
+            stdin: Mutex::new(None),
+        }
+    }
+}
+
 impl Drop for EngineState {
     fn drop(&mut self) {
         stop_process(self);
