@@ -42,12 +42,14 @@ _SERVICE_KW = frozenset([
 _MODERN_SIGNALS = ['__next', '__nuxt', 'react', 'vue', 'angular', 'gatsby', 'svelte']
 _WORD_RE = re.compile(r'\b[a-z]{4,15}\b')
 _CNPJ_RE = re.compile(r'\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}')
+_CNPJ_RE = re.compile(r'\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}')
 
 _EMPTY_RESULT: Dict = {
     'web_has_contact': False,
     'web_has_services': False,
     'web_keywords': '',
     'web_is_modern': False,
+    'web_cnpj': '',
     'web_scraped': False,
 }
 
@@ -87,6 +89,8 @@ def _analyze(html: str) -> Dict:
         text = re.sub(r'<[^>]+>', ' ', html).lower()
 
     html_lower = html.lower()
+    cnpj_match = _CNPJ_RE.search(html)
+    web_cnpj = cnpj_match.group(0).replace('.', '').replace('/', '').replace('-', '') if cnpj_match else ''
 
     has_contact = any(kw in text for kw in _CONTACT_KW)
     has_services = any(kw in text for kw in _SERVICE_KW)
@@ -104,6 +108,7 @@ def _analyze(html: str) -> Dict:
         'web_has_services': has_services,
         'web_keywords': ', '.join(top),
         'web_is_modern': is_modern,
+        'web_cnpj': web_cnpj,
         'web_scraped': True,
     }
 
@@ -119,7 +124,11 @@ async def _enrich_one(
     async with semaphore:
         html = await _fetch(session, url.strip(), timeout)
         if html:
-            return _analyze(html)
+            result = _analyze(html)
+            if result.get('web_cnpj'):
+                from .cnpj_lookup import lookup_cnpj
+                result.update(await lookup_cnpj(session, result['web_cnpj']))
+            return result
         return dict(_EMPTY_RESULT)
 
 
