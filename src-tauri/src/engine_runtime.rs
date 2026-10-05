@@ -39,7 +39,7 @@ fn data_root(app: &tauri::AppHandle) -> Result<PathBuf, String> {
         .path()
         .app_data_dir()
         .map_err(|error| format!("failed to resolve application data directory: {error}"))?
-        .join("runs");
+        .join("Chupacabra System");
 
     std::fs::create_dir_all(&root)
         .map_err(|error| format!("failed to create Chupacabra data directory: {error}"))?;
