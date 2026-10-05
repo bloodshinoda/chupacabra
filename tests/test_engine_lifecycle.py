@@ -72,7 +72,7 @@ class EngineLifecycleTests(unittest.TestCase):
 
         report_module = types.ModuleType("gerar_relatorio")
 
-        def build_workbook(files_by_slug, out_path):
+        def build_workbook(files_by_slug, out_path, lang="pt", **_kwargs):
             output = Path(out_path)
             output.parent.mkdir(parents=True, exist_ok=True)
             output.write_bytes(b"fake-xlsx")
