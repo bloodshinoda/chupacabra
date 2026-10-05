@@ -6,7 +6,7 @@
 
 ## Objetivo
 
-O Chupacabra transforma o fluxo antigo baseado em scripts/BAT em uma aplicação desktop integrada:
+O Chupacabra transforma o fluxo anterior de automação em uma aplicação desktop integrada:
 
 ```text
 Interface React/TanStack
@@ -113,7 +113,7 @@ Os valores são parâmetros operacionais, não garantias de quantidade de result
 
 ## Matriz de prospecção
 
-A antiga automação BAT possuía 36 combinações ativas entre 12 categorias e 3 cidades:
+A matriz de prospecção inicial possui 36 combinações ativas entre 12 categorias e 3 cidades:
 
 - Chapecó
 - Xanxerê
@@ -121,7 +121,7 @@ A antiga automação BAT possuía 36 combinações ativas entre 12 categorias e 
 
 Categorias principais incluem agências de publicidade, gráficas, comunicação visual, marketing digital, brindes corporativos, eventos, serigrafia/estamparia, imobiliárias, concessionárias, construtoras e clínicas odontológicas.
 
-A matriz será controlada pela aplicação, eliminando a necessidade de executar arquivos `.bat`.
+A matriz passa a ser controlada diretamente pela aplicação e pelo runner do engine.
 
 ## Relatórios
 
