@@ -9,7 +9,7 @@ Score breakdown (max 100):
   website   0–30  — digital presence (has_website, domain_valid, web signals)
   phone     0–15  — reachability
 
-Segments:
+Segments (canonical keys stored in CSV before localization):
   micro   0–24
   small  25–49
   medium 50–74
@@ -19,6 +19,54 @@ import logging
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+SEGMENT_LABELS = {
+    "pt": {
+        "micro": "Micro",
+        "small": "Pequena",
+        "medium": "Média",
+        "large": "Grande",
+    },
+    "en": {
+        "micro": "Micro",
+        "small": "Small",
+        "medium": "Medium",
+        "large": "Large",
+    },
+}
+
+# Reverse lookup: any known label -> canonical key
+_REVERSE: dict[str, str] = {}
+for _lang, labels in SEGMENT_LABELS.items():
+    for key, label in labels.items():
+        _REVERSE[label.lower()] = key
+        _REVERSE[key.lower()] = key
+
+
+def normalize_segment_key(value) -> str:
+    """Map any segment label (pt/en/canonical) back to canonical key."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    text = str(value).strip().lower()
+    return _REVERSE.get(text, text)
+
+
+def localize_segment(value, lang: str = "pt") -> str:
+    """Return display label for a segment in the requested language."""
+    key = normalize_segment_key(value)
+    if not key:
+        return ""
+    table = SEGMENT_LABELS.get(lang[:2].lower(), SEGMENT_LABELS["pt"])
+    return table.get(key, key)
+
+
+def localize_segment_column(df: pd.DataFrame, lang: str = "pt") -> pd.DataFrame:
+    """Replace 'segment' column values with localized display labels."""
+    if "segment" not in df.columns:
+        return df
+    df = df.copy()
+    df["segment"] = df["segment"].apply(lambda v: localize_segment(v, lang))
+    return df
 
 
 def _score_reviews(val) -> float:
