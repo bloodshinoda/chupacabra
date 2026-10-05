@@ -2,7 +2,7 @@
 
 **B2B Prospect Engine** para pesquisa de empresas por cidade e nicho, com crawler assíncrono, enriquecimento de leads, execução controlada por perfis e interface desktop baseada em Tauri.
 
-> **Versão 0.3.1 — primeira versão pública com instalador Windows e splash do Chupacabrinha.** O frontend TanStack/Tauri já está integrado ao engine Python legado, com execução real, matriz de alvos, enriquecimento e geração do relatório final.
+> **Versão 0.4.0** — branch único `main`, runtime nativo refinado, CI Windows + Linux, higiene de dados no tip e splash do Chupacabrinha. O frontend TanStack/Tauri está integrado ao engine Python, com execução real, matriz de alvos, enriquecimento e geração do relatório final.
 
 ## Objetivo
 
@@ -13,7 +13,7 @@ Interface React/TanStack
         ↓
      Tauri IPC
         ↓
-     Rust bridge
+     Rust bridge (engine_runtime)
         ↓
  Python Engine / daemon
         ↓
@@ -22,7 +22,9 @@ Interface React/TanStack
  coleta → deduplicação → enriquecimento → relatórios
 ```
 
-A meta de distribuição atual é **Windows + instalador NSIS por máquina**, instalado para todos os usuários em `Program Files`.
+A meta de distribuição principal é **Windows + instalador NSIS por máquina** (`Program Files`). O CI também gera pacote **DEB** para Linux.
+
+O desenvolvimento oficial ocorre **somente no branch `main`**.
 
 ## Estado atual
 
@@ -31,75 +33,60 @@ A meta de distribuição atual é **Windows + instalador NSIS por máquina**, in
 - `placesCrawlerV2` é o crawler principal.
 - Coleta assíncrona via `aiohttp`.
 - Paginação direta do Google Maps.
-- Deduplicação por `place_id`, com contagem de coletados, únicos e duplicados refletida no painel.
+- Deduplicação por `place_id`, com contagem de coletados, únicos e duplicados no painel.
 - Retry com backoff.
-- Perfis de execução:
-  - `rapido`
-  - `balanceado`
-  - `chupacabra`
-- Execução organizada em `runs/<run_id>/jobs/<job_id>/` durante o desenvolvimento.
-- Enriquecimento de leads com campos de telefone, site, domínio, avaliação, densidade de avaliações, score e segmento.
+- Perfis de execução: `rapido`, `balanceado`, `chupacabra`.
+- Execução em `runs/<run_id>/jobs/<job_id>/` no desenvolvimento (dados locais, não versionados).
+- Enriquecimento com telefone, site, domínio, avaliação, score e segmento.
 - Daemon Python com protocolo JSON por stdin/stdout.
 - Eventos de ciclo de vida: início, jobs, progresso, conclusão, falha, cancelamento, logs e relatório final.
-- Protocolo do daemon protegido contra problemas comuns de UTF-8/mojibake entre Python, Rust e Windows.
-- Geração do relatório final XLSX após o enriquecimento dos jobs concluídos, com sanitização de títulos de abas para compatibilidade com Excel.
-- Logs dos jobs com progresso real do crawler, enriquecimento e falhas do relatório.
+- Protocolo protegido contra UTF-8/mojibake entre Python, Rust e Windows.
+- Relatório final XLSX após enriquecimento, com títulos de abas sanitizados para Excel.
 
 ### Tauri
 
-O bridge Rust inicia o engine e envia comandos JSON, encaminhando stdout/stderr para eventos do frontend.
+O bridge Rust (`engine_runtime`) inicia o engine e encaminha stdout/stderr para eventos do frontend.
 
-Em desenvolvimento, o bridge continua podendo usar `python -m engine.daemon` a partir da raiz do projeto.
+Em desenvolvimento: `python -m engine.daemon` a partir da raiz do projeto.
 
-No build Windows, o engine Python é transformado em um executável **self-contained com PyInstaller**. O executável é incorporado como recurso do Tauri, portanto a instalação final **não depende de Python instalado na máquina do usuário**.
+No build Windows, o engine vira executável **self-contained (PyInstaller)** e é embutido como recurso do Tauri — a instalação final **não exige Python** no PC do usuário.
 
-O engine instalado usa como diretório de trabalho os dados do usuário em:
+Dados do usuário (instalado):
 
 ```text
 %USERPROFILE%\Documents\Chupacabra System\
 ```
 
-Isso separa o runtime instalado dos dados mutáveis produzidos pelas execuções.
+Frontend de produção: `.output/public` (TanStack/Nitro).
 
-O frontend de produção será servido pelo diretório `.output/public` gerado pelo TanStack/Nitro.
+Dev server: `127.0.0.1:5173` com porta estrita.
 
-A configuração de desenvolvimento usa `127.0.0.1:5173` com porta estrita (necessária para o Tauri em Windows).
-
-### P0.5 — Runtime Windows / Distribuição 0.3.1
-
-O P0.5 estabelece a primeira cadeia de distribuição do engine:
+### Distribuição 0.4.0
 
 ```text
 engine/daemon.py
       ↓
-PyInstaller --onefile
+PyInstaller --onefile  (scripts/build-engine.mjs)
       ↓
 engine/dist/chupacabra-engine.exe
       ↓
 Tauri resource
       ↓
-NSIS
-      ↓
-Program Files\Chupacabra System\
+NSIS (Windows) / DEB (Linux CI)
 ```
 
-O build automatizado está em `scripts/build-engine.ps1` e usa `requirements-build.txt` apenas no ambiente de desenvolvimento/build. Essas dependências não são instaladas no computador final.
+Build do engine: `npm run build:engine` → `scripts/build-engine.mjs` + `requirements-build.txt` (só no ambiente de build).
 
-O `src-tauri` procura primeiro pelo engine empacotado. Se ele não existir, o modo de desenvolvimento usa `CHUPACABRA_PYTHON`/`CHUPACABRA_ROOT` ou o `python` disponível no PATH.
-
-O diretório de dados pode ser sobrescrito em testes com `CHUPACABRA_DATA_ROOT`.
+O `src-tauri` prioriza o engine empacotado; em dev usa `CHUPACABRA_PYTHON` / `CHUPACABRA_ROOT` ou `python` no PATH. Dados de teste: `CHUPACABRA_DATA_ROOT`.
 
 ### Frontend
 
-A interface já possui as áreas principais:
-
 - **Painel de Controle**
-- **Matriz de Alvos / Cidades & Nichos**
+- **Matriz de Alvos / Cidades & Nichos** (autocomplete de nichos)
 - **Base de Leads**
 - **Automação / Abordagem**
 - **Relatórios / Exportação**
-
-O próximo trabalho de integração é substituir os dados simulados do dashboard por eventos e estados reais do engine.
+- Splash do Chupacabrinha na abertura (`public/chupacabra-splash.png`)
 
 ## Perfis de execução
 
@@ -109,25 +96,23 @@ O próximo trabalho de integração é substituir os dados simulados do dashboar
 | `balanceado` | 500 | sim | 8 | 8–16 s |
 | `chupacabra` | 1000 | sim | 10 | 15–35 s |
 
-Os valores são parâmetros operacionais, não garantias de quantidade de resultados.
+Valores operacionais — não são garantias de quantidade de resultados.
 
 ## Matriz de prospecção
 
-A matriz de prospecção inicial possui 36 combinações ativas entre 12 categorias e 3 cidades:
+36 combinações iniciais (12 categorias × 3 cidades):
 
 - Chapecó
 - Xanxerê
 - Concórdia
 
-Categorias principais incluem agências de publicidade, gráficas, comunicação visual, marketing digital, brindes corporativos, eventos, serigrafia/estamparia, imobiliárias, concessionárias, construtoras e clínicas odontológicas.
+Categorias: agências de publicidade, gráficas, comunicação visual, marketing digital, brindes corporativos, eventos, serigrafia/estamparia, imobiliárias, concessionárias, construtoras, clínicas odontológicas, entre outras.
 
-A matriz passa a ser controlada diretamente pela aplicação e pelo runner do engine.
+A matriz é controlada pela aplicação e pelo runner do engine.
 
 ## Relatórios
 
-A geração do relatório final já está integrada ao ciclo da execução. Após a coleta e o enriquecimento dos jobs concluídos, o engine consolida os CSVs e gera o XLSX da execução.
-
-Os dados intermediários ficam associados à execução e podem ser usados para regenerar ou evoluir os relatórios. A estrutura de distribuição planejada por cidade permanece:
+Após coleta e enriquecimento, o engine consolida CSVs e gera o XLSX da execução. Estrutura planejada por cidade:
 
 ```text
 Reports/
@@ -137,66 +122,56 @@ Reports/
 └── Concordia.xlsx
 ```
 
-Além dos arquivos por cidade, a aplicação deverá manter uma visão consolidada contendo totais, categorias, score, segmentos e indicadores gerais.
-
-Quando uma execução abranger várias cidades, os dados internos continuarão associados a `run_id`, cidade, categoria e job. Isso permite regenerar relatórios sem repetir a coleta.
+Dados intermediários ficam ligados a `run_id`, cidade, categoria e job, permitindo regenerar relatórios sem repetir a coleta.
 
 ## Diretórios de dados no Windows
 
-O instalador e os binários **não devem gravar dados mutáveis dentro de `Program Files`**.
-
-A divisão planejada é:
+**Programa em `Program Files`; dados do usuário em `Documents`; cache/logs em `LocalAppData`; compartilhados em `ProgramData`.**
 
 ```text
 C:\Program Files\Chupacabra System\
-    aplicação, runtime, recursos e componentes instalados
+    aplicação e recursos instalados
 
 C:\ProgramData\Chupacabra System\
-    configurações e dados compartilhados pela máquina, quando necessários
+    configuração compartilhada (quando necessário)
 
 %LOCALAPPDATA%\Chupacabra System\
-    cache, estado temporário e logs do usuário
+    cache, estado temporário e logs
 
 %USERPROFILE%\Documents\Chupacabra System\
-    runs, relatórios, exports e arquivos gerados pelo usuário
+    runs, relatórios e exports
 ```
 
-A regra é simples: **Programa em `Program Files`; dados do usuário em `Documents`; cache/logs em `LocalAppData`; dados realmente compartilhados em `ProgramData`.**
-
-Durante o desenvolvimento, `runs/` continua sendo aceito como diretório local do projeto para facilitar testes e validação.
+Em desenvolvimento, `runs/` na raiz do projeto é local e está no `.gitignore`.
 
 ## Instalador NSIS
 
-O destino oficial atual é um instalador `.exe` NSIS com instalação **`perMachine`**, portanto:
+Instalador `.exe` **perMachine**:
 
-- requer elevação administrativa;
-- instala por padrão em `Program Files`;
-- fica disponível para todos os usuários da máquina;
-- usa metadados de instalação em `HKLM`;
-- cria o atalho no Menu Iniciar em `Chupacabra System`;
-- usa a tradução `PortugueseBR` do NSIS.
+- elevação administrativa;
+- `Program Files` por padrão;
+- disponível para todos os usuários;
+- metadados em `HKLM`;
+- atalho no Menu Iniciar: `Chupacabra System`;
+- tradução `PortugueseBR`.
 
-A configuração Tauri já está preparada para esse modo.
+### Splash
 
-### Splash do aplicativo
+Arte do Chupacabrinha na abertura; fonte em `public/chupacabra-splash.png`.
 
-A abertura do aplicativo exibe a arte-mestra original do Chupacabrinha por alguns instantes antes de entregar o controle ao painel. A mesma arte fica versionada em `public/chupacabra-splash.png`, preservando a identidade visual usada como base para os ícones do Tauri.
-
-### Artes do instalador
-
-Para personalizar o NSIS, preparar estas imagens nas dimensões exatas recomendadas pelo Tauri:
+### Artes do instalador (opcional)
 
 | Arquivo | Uso | Dimensão |
 |---|---|---:|
-| `header.bmp` | cabeçalho das páginas do instalador | **150 × 57 px** |
-| `sidebar.bmp` | lateral da tela inicial/final | **164 × 314 px** |
-| `uninstaller-header.bmp` | cabeçalho do desinstalador, opcional | **150 × 57 px** |
+| `header.bmp` | cabeçalho | **150 × 57 px** |
+| `sidebar.bmp` | lateral | **164 × 314 px** |
+| `uninstaller-header.bmp` | desinstalador | **150 × 57 px** |
 
-O Tauri trata essas artes como bitmaps para o template NSIS. O ícone do instalador/desinstalador é um `.ico`; o conjunto de ícones já é gerado em `src-tauri/icons/`.
-
-Também é recomendável manter uma arte-mestra quadrada de alta resolução, por exemplo **1024 × 1024 px em PNG**, para regenerar os ícones quando a identidade visual mudar.
+Ícones em `src-tauri/icons/`.
 
 ## Desenvolvimento
+
+Branch de trabalho: **`main`** apenas.
 
 ### Frontend
 
@@ -212,90 +187,76 @@ python -m pip install -r mapScraper/requirements.txt
 python -m engine.daemon
 ```
 
-### Smoke test do engine
+### Smoke test
 
 ```bash
 python -m engine.main --profile rapido --query "Agencias de publicidade em Chapeco SC"
 ```
 
-### Validação Rust/Tauri
+### Rust / Tauri
 
 ```bash
 cargo check --manifest-path src-tauri/Cargo.toml
+npx tauri dev
 ```
 
-O `npx tauri dev` deve ser executado em um ambiente desktop local com suporte gráfico (Windows nativo).
+## Build
 
-## Build Windows
-
-O build de distribuição Windows deve ser executado em um ambiente Windows com os pré-requisitos do Tauri instalados.
-
-Para gerar somente o frontend:
+### Frontend
 
 ```bash
 npm run build
 ```
 
-Para gerar o engine self-contained:
+### Engine self-contained
 
-```powershell
+```bash
 npm run build:engine
 ```
 
-Esse passo gera:
+Gera `engine/dist/chupacabra-engine.exe` (Windows).
 
-```text
-engine/dist/chupacabra-engine.exe
-```
-
-Para gerar a aplicação + engine + instalador NSIS:
+### Instalador Windows (NSIS)
 
 ```bash
 npx tauri build --bundles nsis
 ```
 
-O `beforeBuildCommand` do Tauri chama `npm run build:desktop`, que executa o build do frontend e, em seguida, o build do engine. O resultado esperado é um instalador NSIS `.exe` que não exige Python instalado no computador final.
+`beforeBuildCommand` = `npm run build:desktop` (frontend + engine).
 
-Antes da distribuição pública, ainda será necessário configurar assinatura de código, identidade do publicador e validação do instalador em uma instalação limpa do Windows.
+### CI
+
+- **Build Windows** — NSIS artifact + release em tags `v*`
+- **Build Linux** — DEB artifact + release em tags `v*`
+
+Triggers: push em `main`, tags `v*`, `workflow_dispatch`.
+
+Assinatura de código e validação em Windows limpo ainda são passos antes de distribuição ampla.
 
 ## Arquitetura do repositório
 
 ```text
 chupacabra/
 ├── src/                     # frontend React/TanStack
-│   ├── components/
-│   ├── hooks/
-│   ├── lib/
-│   └── routes/
-├── src-tauri/               # shell desktop Tauri/Rust
-│   ├── icons/
-│   ├── src/
-│   └── tauri.conf.json
-├── engine/                  # engine Python
-│   ├── crawler/
-│   ├── models/
-│   ├── orchestration/
-│   └── storage/
-├── mapScraper/              # crawler legado e dependências
-├── scripts/                 # automações de build do desktop
-├── runs/                    # saída local de desenvolvimento
+├── src-tauri/               # Tauri/Rust (engine_runtime)
+├── engine/                  # daemon, crawler, geography, orchestration, storage
+├── mapScraper/              # crawler legado e pipeline
+├── scripts/                 # build-engine.mjs, prepare-assets
+├── tests/                   # testes Python
+├── .github/workflows/       # build-windows, build-linux
 └── README.md
 ```
 
 ## Próximos marcos
 
-1. Integrar completamente o dashboard aos eventos reais do engine.
-2. Integrar a matriz de cidades/nichos ao runner.
-3. Refinar pausa, retomada e cancelamento pela interface.
-4. Consolidar o armazenamento nos diretórios padrão do Windows.
-5. Evoluir o relatório consolidado e relatórios individuais por cidade.
-6. Implementar tela de histórico das execuções.
-7. Validar o engine PyInstaller em Windows limpo.
-8. Validar o instalador NSIS `perMachine` em Windows limpo e ampliar a matriz de testes.
-9. Assinar o executável/instalador para distribuição.
+1. Dashboard 100% ligado a eventos reais do engine.
+2. Histórico de execuções na interface.
+3. Relatórios individuais por cidade + consolidado.
+4. Pausa/retomada/cancelamento refinados na UI.
+5. Diretórios padrão Windows consolidados em produção.
+6. Assinatura de código do instalador.
+7. Validação em Windows limpo e matriz de testes ampliada.
 
 ## Plataformas
 
-O **Tauri não é limitado ao Windows**. O framework suporta Windows, Linux e macOS no desktop, além de Android e iOS. O instalador NSIS e a integração atual do Chupacabra, porém, são o alvo de distribuição **Windows** deste projeto.
-
-Uma versão Linux/macOS seria tecnicamente possível, mas exigiria validar e adaptar o engine Python, empacotamento do runtime, caminhos de dados, dependências nativas e integração específica de cada sistema operacional.
+Tauri cobre Windows, Linux e macOS. O alvo oficial de distribuição é **Windows (NSIS)**; o CI Linux (DEB) valida o build e gera artefato experimental.
