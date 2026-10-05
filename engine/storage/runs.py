@@ -7,8 +7,13 @@ from engine.models import ProspectingRun, SearchJob
 
 
 class RunStore:
-    def __init__(self, root: str | Path = "runs") -> None:
+    def __init__(
+        self,
+        root: str | Path = "runs",
+        report_root: str | Path | None = None,
+    ) -> None:
         self.root = Path(root)
+        self.report_root = Path(report_root) if report_root is not None else None
 
     def run_dir(self, run_id: str) -> Path:
         return self.root / run_id
@@ -60,7 +65,9 @@ class RunStore:
         return self.job_dir(run_id, job_id) / "log.txt"
 
     def report_path(self, run_id: str) -> Path:
-        return self.run_dir(run_id) / "report.xlsx"
+        if self.report_root is None:
+            return self.run_dir(run_id) / "report.xlsx"
+        return self.report_root / run_id / "report.xlsx"
 
     def run_log_path(self, run_id: str) -> Path:
         return self.run_dir(run_id) / "run.log"
