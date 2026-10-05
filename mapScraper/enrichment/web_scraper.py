@@ -123,7 +123,11 @@ async def _enrich_one(
     async with semaphore:
         html = await _fetch(session, url.strip(), timeout)
         if html:
-            return _analyze(html)
+            result = _analyze(html)
+            if result.get('web_cnpj'):
+                from .cnpj_lookup import lookup_cnpj
+                result.update(await lookup_cnpj(session, result['web_cnpj']))
+            return result
         return dict(_EMPTY_RESULT)
 
 
