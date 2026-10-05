@@ -166,12 +166,20 @@ class EngineDaemon:
         if command == "start_run":
             self._start_run(payload)
         elif command == "catalog_states":
-            self._emit_payload({"type": "catalog_states", "states": self._catalog.states()})
+            self._emit_payload({
+                "type": "catalog_states",
+                "correlation_id": payload.get("correlation_id"),
+                "states": self._catalog.states(),
+            })
         elif command == "catalog_world_cities":
             query = str(payload.get("query", ""))
             country_code = payload.get("country_code")
             cities = [item.to_dict() for item in self._world_catalog.search_cities(query, str(country_code) if country_code else None)]
-            self._emit_payload({"type": "catalog_world_cities", "cities": cities})
+            self._emit_payload({
+                "type": "catalog_world_cities",
+                "correlation_id": payload.get("correlation_id"),
+                "cities": cities,
+            })
         elif command == "catalog_cities":
             state = str(payload.get("state_code", ""))
             search = str(payload.get("search", ""))
@@ -184,7 +192,12 @@ class EngineDaemon:
                     include_population=include_population,
                 )
             ]
-            self._emit_payload({"type": "catalog_cities", "state_code": state.upper(), "cities": cities})
+            self._emit_payload({
+                "type": "catalog_cities",
+                "correlation_id": payload.get("correlation_id"),
+                "state_code": state.upper(),
+                "cities": cities,
+            })
         elif command == "pause_run":
             self.runner.pause()
         elif command == "resume_run":
@@ -208,10 +221,16 @@ class EngineDaemon:
             line = line.strip()
             if not line:
                 continue
+            payload = {}
             try:
-                self._dispatch(self._repair_mojibake(json.loads(line)))
+                payload = self._repair_mojibake(json.loads(line))
+                self._dispatch(payload)
             except Exception as exc:
-                self._emit_payload({"type": "engine_error", "error": str(exc)})
+                self._emit_payload({
+                    "type": "engine_error",
+                    "correlation_id": payload.get("correlation_id") if isinstance(payload, dict) else None,
+                    "error": str(exc),
+                })
 
 
 if __name__ == "__main__":
