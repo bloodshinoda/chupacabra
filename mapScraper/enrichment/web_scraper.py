@@ -48,6 +48,7 @@ _EMPTY_RESULT: Dict = {
     'web_has_services': False,
     'web_keywords': '',
     'web_is_modern': False,
+    'web_cnpj': '',
     'web_scraped': False,
 }
 
