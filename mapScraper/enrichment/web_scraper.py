@@ -42,7 +42,6 @@ _SERVICE_KW = frozenset([
 _MODERN_SIGNALS = ['__next', '__nuxt', 'react', 'vue', 'angular', 'gatsby', 'svelte']
 _WORD_RE = re.compile(r'\b[a-z]{4,15}\b')
 _CNPJ_RE = re.compile(r'\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}')
-_CNPJ_RE = re.compile(r'\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}')
 
 _EMPTY_RESULT: Dict = {
     'web_has_contact': False,
