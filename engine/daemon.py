@@ -103,7 +103,11 @@ class EngineDaemon:
 
             profile = str(payload.get("profile", "balanceado"))
             runs_dir = str(payload.get("runs_dir", "runs"))
-            self.runner.store = RunStore(Path(runs_dir))
+            reports_dir = payload.get("reports_dir")
+            self.runner.store = RunStore(
+                Path(runs_dir),
+                report_root=Path(str(reports_dir)) if reports_dir else None,
+            )
 
             raw_targets = payload.get("targets")
             if raw_targets:
