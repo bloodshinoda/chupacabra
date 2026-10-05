@@ -19,3 +19,9 @@ engine/dist/
 .output/
 .wrangler/
 src-tauri/gen/
+# Outros artefatos locais
+src-tauri/target/
+*.log
+.DS_Store
+Thumbs.db
+coverage/
