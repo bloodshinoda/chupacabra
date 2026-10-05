@@ -127,12 +127,13 @@ function RootComponent() {
         const mainWindow = getCurrentWindow();
         const splashWindow = await Window.getByLabel("splashscreen");
         await splashWindow?.show();
-        await mainWindow.show();
 
-        // Mantém o splash visível por um instante mínimo para evitar que
-        // ele desapareça antes de o usuário perceber a identidade visual.
+        // O frontend já chegou ao RootComponent neste ponto. Mantemos a
+        // janela principal oculta até o splash terminar para evitar que uma
+        // janela vazia apareça por baixo da identidade visual.
         await new Promise((resolve) => window.setTimeout(resolve, 700));
         await splashWindow?.close();
+        await mainWindow.show();
       } catch (error) {
         console.error("Falha ao finalizar splash nativo:", error);
       }
