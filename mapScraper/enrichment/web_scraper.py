@@ -89,6 +89,8 @@ def _analyze(html: str) -> Dict:
         text = re.sub(r'<[^>]+>', ' ', html).lower()
 
     html_lower = html.lower()
+    cnpj_match = _CNPJ_RE.search(html)
+    cnpj_value = cnpj_match.group(0).replace('.', '').replace('/', '').replace('-', '') if cnpj_match else ''
 
     has_contact = any(kw in text for kw in _CONTACT_KW)
     has_services = any(kw in text for kw in _SERVICE_KW)
