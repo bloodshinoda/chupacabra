@@ -48,7 +48,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cancelRun, engineStatus, isTauriRuntime, listenEngineEvents, loadBrazilCities, loadBrazilStates, loadWorldCities, pauseRun, resumeRun, startRun, type EngineProfile, type TargetLocation } from "@/lib/engine";
+import { cancelRun, engineStatus, isTauriRuntime, listenEngineEvents, listRuns, loadBrazilCities, loadBrazilStates, loadWorldCities, loadRunLeads, pauseRun, resumeRun, startRun, type EngineProfile, type LeadRecord, type TargetLocation, type EngineRun } from "@/lib/engine";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -73,15 +73,6 @@ const NAV_ITEMS = [
   { id: "leads" as const, label: "Base de Leads", icon: Database },
   { id: "outreach" as const, label: "Automação", sub: "de Abordagem", icon: Bot },
   { id: "reports" as const, label: "Relatórios", sub: "e Exportação", icon: FileSpreadsheet },
-];
-
-const LEADS = [
-  { name: "Nexus Tecnologia", niche: "Software B2B", city: "São Paulo", phone: "+55 11 98412-3001", site: "nexustech.com.br", status: "Qualificado" },
-  { name: "Aurum Contabilidade", niche: "Contabilidade", city: "Curitiba", phone: "+55 41 99873-1190", site: "aurumcontabil.com", status: "Novo" },
-  { name: "Clínica Horizonte", niche: "Saúde", city: "Belo Horizonte", phone: "+55 31 98823-5721", site: "clinicahorizonte.com", status: "Em análise" },
-  { name: "Prisma Engenharia", niche: "Construção", city: "Campinas", phone: "+55 19 99144-8830", site: "prismaeng.com.br", status: "Qualificado" },
-  { name: "Atlas Logística", niche: "Logística", city: "São Paulo", phone: "+55 11 97752-6204", site: "atlaslog.com.br", status: "Descartado" },
-  { name: "Vértice Legal", niche: "Advocacia", city: "Curitiba", phone: "+55 41 98410-7744", site: "verticelegal.com", status: "Novo" },
 ];
 
 const INITIAL_LOGS = [
@@ -807,13 +798,84 @@ function TagManager({ title, icon: Icon, items, input, setInput, onAdd, onRemove
 function RangeSetting({label,value,min,max,values,onChange}:{label:string;value:string;min:number;max:number;values:number[];onChange:(v:number[])=>void}) { return <div><div className="mb-4 flex items-center justify-between text-xs"><span className="text-muted-foreground">{label}</span><span className="font-mono text-primary">{value}</span></div><Slider min={min} max={max} value={values} onValueChange={onChange}/><div className="mt-2 flex justify-between font-mono text-[9px] text-muted-foreground"><span>{min}</span><span>{max}</span></div></div>; }
 
 function LeadsView() {
-  const [search, setSearch] = useState(""); const [city, setCity] = useState("Todas"); const [status, setStatus] = useState("Todos");
-  const rows = useMemo(()=>LEADS.filter(l => (l.name+l.niche+l.city).toLowerCase().includes(search.toLowerCase()) && (city==="Todas"||l.city===city) && (status==="Todos"||l.status===status)),[search,city,status]);
-  return <><PageIntro eyebrow="Inteligência consolidada" title="Base de Leads" description="Revise, filtre e prepare os contatos encontrados para qualificação." action={<div className="flex gap-2"><Button variant="outline"><FileText/> CSV</Button><Button><FileSpreadsheet/> XLSX</Button></div>} />
-    <section className="panel overflow-hidden"><div className="grid gap-3 border-b border-border p-4 md:grid-cols-[minmax(240px,1fr)_200px_180px]"><label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/><input className="field pl-9" placeholder="Buscar empresa, nicho ou cidade..." value={search} onChange={e=>setSearch(e.target.value)}/></label><SelectField value={city} setValue={setCity} options={["Todas","São Paulo","Curitiba","Belo Horizonte","Campinas"]}/><SelectField value={status} setValue={setStatus} options={["Todos","Novo","Em análise","Qualificado","Descartado"]}/></div><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead><tr className="border-b border-border font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{["Empresa","Nicho","Cidade","Telefone","Website","Qualificação"].map(h=><th key={h} className="px-5 py-4 font-medium">{h}</th>)}</tr></thead><tbody>{rows.map(lead=><tr key={lead.name} className="border-b border-border/60 transition-colors hover:bg-surface"><td className="px-5 py-4 font-medium">{lead.name}</td><td className="px-5 py-4 text-muted-foreground">{lead.niche}</td><td className="px-5 py-4 text-muted-foreground">{lead.city}</td><td className="px-5 py-4 font-mono text-xs">{lead.phone}</td><td className="px-5 py-4 text-info">{lead.site}</td><td className="px-5 py-4"><StatusBadge status={lead.status}/></td></tr>)}</tbody></table></div><div className="flex items-center justify-between px-5 py-4 text-xs text-muted-foreground"><span>Exibindo {rows.length} de {LEADS.length} leads</span><span className="font-mono text-primary">BASE LOCAL // SINCRONIZADA</span></div></section>
+  const [runs, setRuns] = useState<EngineRun[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState("");
+  const [leads, setLeads] = useState<LeadRecord[]>([]);
+  const [search, setSearch] = useState("");
+  const [city, setCity] = useState("Todas");
+  const [category, setCategory] = useState("Todas");
+  const [scoreBand, setScoreBand] = useState("Todas");
+  const [onlyCnpj, setOnlyCnpj] = useState(false);
+  const [onlyWebsite, setOnlyWebsite] = useState(false);
+  const [loadingRuns, setLoadingRuns] = useState(false);
+  const [loadingLeads, setLoadingLeads] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    let active = true;
+    setLoadingRuns(true);
+    void listRuns().then((items) => {
+      if (!active) return;
+      setRuns(items);
+      if (items.length) setSelectedRunId(items[0].id);
+    }).catch((reason) => {
+      if (active) setError(reason instanceof Error ? reason.message : String(reason));
+    }).finally(() => {
+      if (active) setLoadingRuns(false);
+    });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedRunId || !isTauriRuntime()) { setLeads([]); return; }
+    let active = true;
+    setLoadingLeads(true);
+    setError("");
+    void loadRunLeads(selectedRunId).then((items) => {
+      if (active) setLeads(items);
+    }).catch((reason) => {
+      if (active) setError(reason instanceof Error ? reason.message : String(reason));
+    }).finally(() => {
+      if (active) setLoadingLeads(false);
+    });
+    return () => { active = false; };
+  }, [selectedRunId]);
+
+  const cities = useMemo(() => ["Todas", ...Array.from(new Set(leads.map((lead) => lead.city).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"))], [leads]);
+  const categories = useMemo(() => ["Todas", ...Array.from(new Set(leads.map((lead) => lead.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"))], [leads]);
+  const scoreBandOf = (lead: LeadRecord) => {
+    const value = Number(lead.score);
+    if (!Number.isFinite(value)) return "";
+    if (value < 25) return "Micro";
+    if (value < 50) return "Pequena";
+    if (value < 75) return "Média";
+    return "Grande";
+  };
+  const filtered = useMemo(() => {
+    const needle = search.trim().toLocaleLowerCase("pt-BR");
+    return leads.filter((lead) => {
+      const haystack = [lead.title, lead.category, lead.city, lead.phoneNumber, lead.domain, lead.web_cnpj, lead.cnpj_porte].filter(Boolean).join(" ").toLocaleLowerCase("pt-BR");
+      return (!needle || haystack.includes(needle)) && (city === "Todas" || lead.city === city) && (category === "Todas" || lead.category === category) && (scoreBand === "Todas" || scoreBandOf(lead) === scoreBand) && (!onlyCnpj || Boolean(lead.web_cnpj)) && (!onlyWebsite || Boolean(lead.domain));
+    });
+  }, [leads, search, city, category, scoreBand, onlyCnpj, onlyWebsite]);
+  const selectedRun = runs.find((run) => run.id === selectedRunId);
+  const scoreOf = (lead: LeadRecord) => { const value = Number(lead.score); return Number.isFinite(value) ? value.toFixed(1) : "—"; };
+  const statusOf = (lead: LeadRecord) => { const score = Number(lead.score); if (Number.isFinite(score) && score >= 75) return "Qualificado"; if (Number.isFinite(score) && score >= 50) return "Em análise"; return "Novo"; };
+
+  return <>
+    <PageIntro eyebrow="Inteligência consolidada" title="Base de Leads" description="Leads reais das execuções do engine, com enriquecimento e score quando disponíveis." action={<SelectField value={selectedRunId || "Nenhuma execução"} setValue={setSelectedRunId} options={runs.length ? runs.map((run) => run.id) : ["Nenhuma execução"]} />} />
+    {!isTauriRuntime() && <section className="panel mb-4 border-warning/30 p-5"><p className="text-sm font-medium text-warning">A Base de Leads funciona dentro do aplicativo desktop.</p><p className="mt-1 text-xs text-muted-foreground">Abra o Chupacabra pelo Tauri para carregar as execuções reais.</p></section>}
+    {error && <section className="panel mb-4 border-destructive/30 p-4 text-xs text-destructive">{error}</section>}
+    <section className="panel overflow-hidden">
+      <div className="grid gap-3 border-b border-border p-4 md:grid-cols-[minmax(240px,1fr)_180px_180px]"><label className="relative"><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><input className="field pl-9" placeholder="Buscar empresa, nicho, cidade ou CNPJ..." value={search} onChange={(e) => setSearch(e.target.value)} /></label><SelectField value={city} setValue={setCity} options={cities} /><SelectField value={category} setValue={setCategory} options={categories} /></div>
+      <div className="flex flex-wrap items-center gap-2 border-b border-border p-4"><SelectField value={scoreBand} setValue={setScoreBand} options={["Todas", "Micro", "Pequena", "Média", "Grande"]} /><Button variant={onlyCnpj ? "default" : "outline"} size="sm" onClick={() => setOnlyCnpj((value) => !value)}>CNPJ</Button><Button variant={onlyWebsite ? "default" : "outline"} size="sm" onClick={() => setOnlyWebsite((value) => !value)}>Website</Button><span className="ml-auto font-mono text-[10px] text-muted-foreground">{loadingRuns || loadingLeads ? "CARREGANDO..." : `${filtered.length.toLocaleString("pt-BR")} / ${leads.length.toLocaleString("pt-BR")} leads`}</span></div>
+      {loadingRuns ? <div className="p-10 text-center text-sm text-muted-foreground">Carregando execuções...</div> : !runs.length ? <div className="p-10 text-center"><Database className="mx-auto size-8 text-muted-foreground" /><p className="mt-3 text-sm font-medium">Nenhuma execução encontrada.</p><p className="mt-1 text-xs text-muted-foreground">Execute uma prospecção pela Matriz de Alvos para alimentar esta base.</p></div> : loadingLeads ? <div className="p-10 text-center text-sm text-muted-foreground">Carregando leads da execução...</div> : !filtered.length ? <div className="p-10 text-center text-sm text-muted-foreground">Nenhum lead corresponde aos filtros atuais.</div> :
+      <div className="overflow-x-auto"><table className="w-full min-w-[1180px] text-left text-sm"><thead><tr className="border-b border-border font-mono text-[9px] uppercase tracking-wider text-muted-foreground">{["Empresa", "Categoria", "Cidade", "Telefone", "Website", "CNPJ", "Porte", "Score", "Faixa"].map((header) => <th key={header} className="px-4 py-4 font-medium">{header}</th>)}</tr></thead><tbody>{filtered.map((lead, index) => <tr key={lead.id || lead.run_id + "-" + lead.job_id + "-" + lead.title + "-" + index} className="border-b border-border/60 transition-colors hover:bg-surface"><td className="px-4 py-4 font-medium">{lead.title || "—"}</td><td className="px-4 py-4 text-muted-foreground">{lead.category || "—"}</td><td className="px-4 py-4 text-muted-foreground">{lead.city || "—"}</td><td className="px-4 py-4 font-mono text-xs">{lead.phoneNumber || "—"}</td><td className="px-4 py-4 text-info">{lead.domain || "—"}</td><td className="px-4 py-4 font-mono text-xs">{lead.web_cnpj || "—"}</td><td className="px-4 py-4">{lead.cnpj_porte || "—"}</td><td className="px-4 py-4 font-mono text-primary">{scoreOf(lead)}</td><td className="px-4 py-4"><StatusBadge status={statusOf(lead)} /></td></tr>)}</tbody></table></div>}
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-5 py-4 text-xs text-muted-foreground"><span>{selectedRun ? "Execução " + selectedRun.id + " · " + selectedRun.completed_jobs + "/" + selectedRun.total_jobs + " jobs concluídos" : "Nenhuma execução selecionada"}</span><span className="font-mono text-primary">BASE REAL // ENGINE</span></div>
+    </section>
   </>;
 }
-
 function SelectField({value,setValue,options}:{value:string;setValue:(v:string)=>void;options:string[]}) {
   return <Select value={value} onValueChange={setValue}>
     <SelectTrigger className="field"><SelectValue /></SelectTrigger>
