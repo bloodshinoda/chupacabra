@@ -71,6 +71,7 @@ COLS_I18N = {
         ("stars", "Avaliação", 10),
         ("reviews", "Nº Avaliações", 12),
         ("score", "Score (Lead)", 12),
+        ("segment", "Faixa de Score", 16),
     ],
     "en": [
         ("title", "Name", 32),
@@ -83,6 +84,7 @@ COLS_I18N = {
         ("stars", "Rating", 10),
         ("reviews", "Reviews", 12),
         ("score", "Lead Score", 12),
+        ("segment", "Score Band", 16),
     ],
 }
 
