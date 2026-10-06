@@ -35,6 +35,13 @@ export type LeadRecord = Record<string, string> & {
   category_slug: string;
 };
 
+export type RunReportFormat = "csv" | "xlsx" | "all";
+
+export type RunReportPaths = {
+  csv?: string;
+  xlsx?: string;
+};
+
 export type EngineEvent = {
   type: string;
   timestamp?: string;
@@ -68,6 +75,7 @@ export type EngineEvent = {
   concurrency?: number;
   limit?: number;
   results?: number;
+  paths?: RunReportPaths;
   correlation_id?: string;
 };
 
@@ -184,6 +192,21 @@ export async function loadRunLeads(runId: string): Promise<LeadRecord[]> {
   return Array.isArray(response.leads) ? (response.leads as LeadRecord[]) : [];
 }
 
+export async function exportRunReport(
+  runId: string,
+  format: RunReportFormat,
+): Promise<RunReportPaths> {
+  const response = await requestEngineData("export_run_report", {
+    run_id: runId,
+    format,
+  });
+  const requiredPaths: (keyof RunReportPaths)[] = format === "all" ? ["csv", "xlsx"] : [format];
+  if (!response.paths || requiredPaths.some((key) => typeof response.paths?.[key] !== "string")) {
+    throw new Error("O engine não retornou os caminhos dos arquivos exportados.");
+  }
+  return response.paths;
+}
+
 async function requestEngineData(
   command: string,
   payload: Record<string, unknown> = {},
@@ -203,24 +226,33 @@ async function requestEngineData(
       callback();
     };
 
-    void listen<EngineEvent & { runs?: EngineRun[]; leads?: LeadRecord[] }>("engine-event", (event) => {
-      if (event.payload.correlation_id !== correlationId) return;
-      if (event.payload.type === "engine_error") {
-        finish(() => reject(new Error(event.payload.error ?? "Falha ao consultar o engine.")));
-      } else if (event.payload.type === "runs_list" || event.payload.type === "run_leads") {
-        finish(() => resolve(event.payload));
-      }
-    }).then((unlisten) => {
-      stop = unlisten;
-      if (settled) unlisten();
-      void invoke("engine_command", {
-        command: {
-          command,
-          correlation_id: correlationId,
-          ...payload,
-        },
-      }).catch((error) => finish(() => reject(error)));
-    }).catch(reject);
+    void listen<EngineEvent & { runs?: EngineRun[]; leads?: LeadRecord[] }>(
+      "engine-event",
+      (event) => {
+        if (event.payload.correlation_id !== correlationId) return;
+        if (event.payload.type === "engine_error") {
+          finish(() => reject(new Error(event.payload.error ?? "Falha ao consultar o engine.")));
+        } else if (
+          event.payload.type === "runs_list" ||
+          event.payload.type === "run_leads" ||
+          event.payload.type === "run_report_exported"
+        ) {
+          finish(() => resolve(event.payload));
+        }
+      },
+    )
+      .then((unlisten) => {
+        stop = unlisten;
+        if (settled) unlisten();
+        void invoke("engine_command", {
+          command: {
+            command,
+            correlation_id: correlationId,
+            ...payload,
+          },
+        }).catch((error) => finish(() => reject(error)));
+      })
+      .catch(reject);
   });
 }
 

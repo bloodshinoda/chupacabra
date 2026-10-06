@@ -242,7 +242,7 @@ pub fn engine_command(
         payload.extend(fields);
     }
 
-    if command.command == "start_run" {
+    if command.command == "start_run" || command.command == "export_run_report" {
         payload.insert(
             "runs_dir".into(),
             serde_json::Value::String(

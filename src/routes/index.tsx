@@ -48,7 +48,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { cancelRun, engineStatus, isTauriRuntime, listenEngineEvents, listRuns, loadBrazilCities, loadBrazilStates, loadWorldCities, loadRunLeads, pauseRun, resumeRun, startRun, type EngineProfile, type LeadRecord, type TargetLocation, type EngineRun } from "@/lib/engine";
+import {
+  cancelRun,
+  engineStatus,
+  exportRunReport,
+  isTauriRuntime,
+  listenEngineEvents,
+  listRuns,
+  loadBrazilCities,
+  loadBrazilStates,
+  loadWorldCities,
+  loadRunLeads,
+  pauseRun,
+  resumeRun,
+  startRun,
+  type EngineProfile,
+  type LeadRecord,
+  type RunReportFormat,
+  type TargetLocation,
+  type EngineRun,
+} from "@/lib/engine";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -818,7 +837,8 @@ function LeadsView() {
     void listRuns().then((items) => {
       if (!active) return;
       setRuns(items);
-      if (items.length) setSelectedRunId(items[0].id);
+      const firstRun = items[0];
+      if (firstRun) setSelectedRunId(firstRun.id);
     }).catch((reason) => {
       if (active) setError(reason instanceof Error ? reason.message : String(reason));
     }).finally(() => {
@@ -844,14 +864,6 @@ function LeadsView() {
 
   const cities = useMemo(() => ["Todas", ...Array.from(new Set(leads.map((lead) => lead.city).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"))], [leads]);
   const categories = useMemo(() => ["Todas", ...Array.from(new Set(leads.map((lead) => lead.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"))], [leads]);
-  const scoreBandOf = (lead: LeadRecord) => {
-    const value = Number(lead.score);
-    if (!Number.isFinite(value)) return "";
-    if (value < 25) return "Micro";
-    if (value < 50) return "Pequena";
-    if (value < 75) return "Média";
-    return "Grande";
-  };
   const filtered = useMemo(() => {
     const needle = search.trim().toLocaleLowerCase("pt-BR");
     return leads.filter((lead) => {
@@ -882,6 +894,14 @@ function SelectField({value,setValue,options}:{value:string;setValue:(v:string)=
     <SelectContent>{options.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}</SelectContent>
   </Select>;
 }
+function scoreBandOf(lead: LeadRecord) {
+  const value = Number(lead["score"]);
+  if (!Number.isFinite(value)) return "";
+  if (value < 25) return "Micro";
+  if (value < 50) return "Pequena";
+  if (value < 75) return "Média";
+  return "Grande";
+}
 function StatusBadge({status}:{status:string}) { return <span className={cn("status-badge", status==="Qualificado"&&"status-success", status==="Em análise"&&"status-info", status==="Descartado"&&"status-muted")}>{status}</span>; }
 
 function OutreachView() {
@@ -893,8 +913,253 @@ function OutreachView() {
 }
 
 function ReportsView() {
- return <><PageIntro eyebrow="Dados portáveis" title="Relatórios e Exportação" description="Consolide resultados da operação e exporte bases prontas para sua equipe." action={<Button><Download/> Exportar tudo</Button>} />
- <div className="grid gap-4 md:grid-cols-3">{[{title:"Base completa",desc:"Todos os leads, contatos e metadados",count:"2.847 registros",icon:Database},{title:"Leads qualificados",desc:"Contatos com score comercial acima de 70%",count:"936 registros",icon:Check},{title:"Relatório operacional",desc:"Desempenho, fontes e eficiência da coleta",count:"Últimos 30 dias",icon:Gauge}].map(r=><section key={r.title} className="panel p-5"><div className="grid size-10 place-items-center bg-primary/10 text-primary"><r.icon className="size-5"/></div><h3 className="mt-5 font-display font-semibold">{r.title}</h3><p className="mt-2 min-h-10 text-xs text-muted-foreground">{r.desc}</p><p className="mt-5 font-mono text-[10px] text-info">{r.count}</p><div className="mt-4 flex gap-2"><Button variant="outline" className="flex-1"><FileText/> CSV</Button><Button variant="outline" className="flex-1"><FileSpreadsheet/> XLSX</Button></div></section>)}</div>
- <section className="panel mt-4 p-5"><div className="flex items-center justify-between"><div><h3 className="font-display font-semibold">Resumo da operação</h3><p className="mt-1 text-xs text-muted-foreground">Distribuição dos leads por estágio</p></div><FileSpreadsheet className="size-5 text-primary"/></div><div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">{[["Novos","1.492","52%"],["Em análise","419","15%"],["Qualificados","936","33%"],["Com website","2.274","80%"]].map(([l,v,p])=><div key={l} className="border-l border-border pl-4"><p className="text-xs text-muted-foreground">{l}</p><p className="mt-2 font-display text-2xl font-bold">{v}</p><p className="mt-1 font-mono text-[10px] text-primary">{p} da base</p></div>)}</div></section>
- </>;
+  const [runs, setRuns] = useState<EngineRun[]>([]);
+  const [selectedRunId, setSelectedRunId] = useState("");
+  const [leads, setLeads] = useState<LeadRecord[]>([]);
+  const [onlyCnpj, setOnlyCnpj] = useState(false);
+  const [onlyWebsite, setOnlyWebsite] = useState(false);
+  const [loadingRuns, setLoadingRuns] = useState(false);
+  const [loadingLeads, setLoadingLeads] = useState(false);
+  const [exporting, setExporting] = useState<RunReportFormat | null>(null);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    let active = true;
+    setLoadingRuns(true);
+    void listRuns()
+      .then((items) => {
+        if (!active) return;
+        setRuns(items);
+        const firstRun = items[0];
+        if (firstRun) setSelectedRunId(firstRun.id);
+      })
+      .catch((cause) => {
+        if (active) setError(cause instanceof Error ? cause.message : String(cause));
+      })
+      .finally(() => {
+        if (active) setLoadingRuns(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedRunId || !isTauriRuntime()) {
+      setLeads([]);
+      setLoadingLeads(false);
+      return;
+    }
+    let active = true;
+    setLeads([]);
+    setLoadingLeads(true);
+    setError("");
+    void loadRunLeads(selectedRunId)
+      .then((items) => {
+        if (active) setLeads(items);
+      })
+      .catch((cause) => {
+        if (active) setError(cause instanceof Error ? cause.message : String(cause));
+      })
+      .finally(() => {
+        if (active) setLoadingLeads(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedRunId]);
+
+  const filteredLeads = useMemo(
+    () =>
+      leads.filter(
+        (lead) =>
+          (!onlyCnpj || Boolean(lead["web_cnpj"])) && (!onlyWebsite || Boolean(lead["domain"])),
+      ),
+    [leads, onlyCnpj, onlyWebsite],
+  );
+  const selectedRun = runs.find((run) => run.id === selectedRunId);
+  const countBand = (band: string) =>
+    filteredLeads.filter((lead) => scoreBandOf(lead) === band).length;
+  const qualifiedCount = countBand("Grande");
+  const analysisCount = filteredLeads.filter((lead) => {
+    const score = Number(lead["score"]);
+    return Number.isFinite(score) && score >= 50 && score < 75;
+  }).length;
+  const newCount = filteredLeads.length - qualifiedCount - analysisCount;
+  const websiteCount = filteredLeads.filter((lead) => Boolean(lead["domain"])).length;
+  const percentOfBase = (count: number) =>
+    filteredLeads.length ? `${Math.round((count / filteredLeads.length) * 100)}%` : "0%";
+
+  const handleExport = async (format: RunReportFormat) => {
+    if (!selectedRunId) return;
+    setExporting(format);
+    setError("");
+    setMessage("");
+    try {
+      const paths = await exportRunReport(selectedRunId, format);
+      setMessage(
+        Object.entries(paths)
+          .map(([kind, path]) => `${kind.toUpperCase()}: ${path}`)
+          .join(" · "),
+      );
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const exportDisabled = !selectedRunId || loadingRuns || loadingLeads || exporting !== null;
+  const reports = [
+    {
+      title: "Base completa",
+      desc: "Todos os leads, contatos e metadados",
+      count: `${filteredLeads.length.toLocaleString("pt-BR")} registros`,
+      icon: Database,
+    },
+    {
+      title: "Leads qualificados",
+      desc: "Leads na faixa de score Grande (75–100)",
+      count: `${qualifiedCount.toLocaleString("pt-BR")} registros`,
+      icon: Check,
+    },
+    {
+      title: "Relatório operacional",
+      desc: "Desempenho e eficiência da execução selecionada",
+      count: selectedRun
+        ? `${selectedRun.completed_jobs}/${selectedRun.total_jobs} jobs concluídos`
+        : "Nenhuma execução selecionada",
+      icon: Gauge,
+    },
+  ];
+
+  return (
+    <>
+      <PageIntro
+        eyebrow="Dados portáveis"
+        title="Relatórios e Exportação"
+        description="Consolide resultados da execução selecionada e exporte bases prontas para sua equipe."
+        action={
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <SelectField
+              value={selectedRunId || "Nenhuma execução"}
+              setValue={setSelectedRunId}
+              options={runs.length ? runs.map((run) => run.id) : ["Nenhuma execução"]}
+            />
+            <Button onClick={() => void handleExport("all")} disabled={exportDisabled}>
+              <Download /> {exporting === "all" ? "Exportando..." : "Exportar tudo"}
+            </Button>
+          </div>
+        }
+      />
+      {!isTauriRuntime() && (
+        <section className="panel mb-4 border-warning/30 p-5">
+          <p className="text-sm font-medium text-warning">
+            Relatórios funcionam dentro do aplicativo desktop.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Abra o Chupacabra pelo Tauri para carregar execuções reais.
+          </p>
+        </section>
+      )}
+      {error && (
+        <section className="panel mb-4 border-destructive/30 p-4 text-xs text-destructive">
+          {error}
+        </section>
+      )}
+      {message && (
+        <section className="panel mb-4 border-primary/30 p-4 text-xs text-primary">
+          {message}
+        </section>
+      )}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Button
+          variant={onlyCnpj ? "default" : "outline"}
+          size="sm"
+          onClick={() => setOnlyCnpj((value) => !value)}
+        >
+          CNPJ
+        </Button>
+        <Button
+          variant={onlyWebsite ? "default" : "outline"}
+          size="sm"
+          onClick={() => setOnlyWebsite((value) => !value)}
+        >
+          Website
+        </Button>
+        <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+          {loadingRuns || loadingLeads
+            ? "CARREGANDO..."
+            : `${filteredLeads.length.toLocaleString("pt-BR")} / ${leads.length.toLocaleString("pt-BR")} leads`}
+        </span>
+      </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        {reports.map((report) => (
+          <section key={report.title} className="panel p-5">
+            <div className="grid size-10 place-items-center bg-primary/10 text-primary">
+              <report.icon className="size-5" />
+            </div>
+            <h3 className="mt-5 font-display font-semibold">{report.title}</h3>
+            <p className="mt-2 min-h-10 text-xs text-muted-foreground">{report.desc}</p>
+            <p className="mt-5 font-mono text-[10px] text-info">{report.count}</p>
+            <div className="mt-4 flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => void handleExport("csv")}
+                disabled={exportDisabled}
+              >
+                <FileText /> CSV
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => void handleExport("xlsx")}
+                disabled={exportDisabled}
+              >
+                <FileSpreadsheet /> XLSX
+              </Button>
+            </div>
+          </section>
+        ))}
+      </div>
+      <section className="panel mt-4 p-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-display font-semibold">Resumo da operação</h3>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Distribuição dos leads filtrados por estágio
+            </p>
+          </div>
+          <FileSpreadsheet className="size-5 text-primary" />
+        </div>
+        {loadingRuns ? (
+          <p className="mt-8 text-sm text-muted-foreground">Carregando execuções...</p>
+        ) : loadingLeads ? (
+          <p className="mt-8 text-sm text-muted-foreground">Carregando leads da execução...</p>
+        ) : !selectedRun ? (
+          <p className="mt-8 text-sm text-muted-foreground">Nenhuma execução encontrada.</p>
+        ) : (
+          <div className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["Novos", newCount, percentOfBase(newCount)],
+              ["Em análise", analysisCount, percentOfBase(analysisCount)],
+              ["Qualificados", qualifiedCount, percentOfBase(qualifiedCount)],
+              ["Com website", websiteCount, percentOfBase(websiteCount)],
+            ].map(([label, value, percent]) => (
+              <div key={String(label)} className="border-l border-border pl-4">
+                <p className="text-xs text-muted-foreground">{label}</p>
+                <p className="mt-2 font-display text-2xl font-bold">
+                  {Number(value).toLocaleString("pt-BR")}
+                </p>
+                <p className="mt-1 font-mono text-[10px] text-primary">{percent} da base</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </>
+  );
 }

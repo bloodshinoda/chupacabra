@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 import errno
 import json
+import tempfile
 import sys
 import threading
 from pathlib import Path
@@ -103,12 +104,7 @@ class EngineDaemon:
                 raise RuntimeError("A prospecting run is already active")
 
             profile = str(payload.get("profile", "balanceado"))
-            runs_dir = str(payload.get("runs_dir", "runs"))
-            reports_dir = payload.get("reports_dir")
-            self.runner.store = RunStore(
-                Path(runs_dir),
-                report_root=Path(str(reports_dir)) if reports_dir else None,
-            )
+            self._configure_store(payload)
 
             raw_targets = payload.get("targets")
             if raw_targets:
@@ -162,7 +158,15 @@ class EngineDaemon:
             )
             self._run_thread.start()
 
-    def _list_runs(self) -> None:
+    def _configure_store(self, payload: dict) -> None:
+        runs_dir = str(payload.get("runs_dir", self.runner.store.root))
+        reports_dir = payload.get("reports_dir")
+        self.runner.store = RunStore(
+            Path(runs_dir),
+            report_root=Path(str(reports_dir)) if reports_dir else self.runner.store.report_root,
+        )
+
+    def _list_runs(self, payload: dict) -> None:
         root = Path(self.runner.store.root)
         runs = []
         if root.exists():
@@ -230,14 +234,157 @@ class EngineDaemon:
             "leads": leads,
         })
 
+    def _export_run_report(self, payload: dict) -> None:
+        self._configure_store(payload)
+        run_id = str(payload.get("run_id", "")).strip()
+        if not run_id or run_id in {".", ".."} or Path(run_id).name != run_id:
+            raise ValueError("run_id inválido")
+
+        export_format = str(payload.get("format", "")).strip().lower()
+        if export_format not in {"csv", "xlsx", "all"}:
+            raise ValueError("format deve ser csv, xlsx ou all")
+
+        run_dir = self.runner.store.run_dir(run_id)
+        run_file = run_dir / "run.json"
+        if not run_file.is_file():
+            raise ValueError(f"Execução não encontrada: {run_id}")
+        run_data = json.loads(run_file.read_text(encoding="utf-8"))
+
+        completed_jobs = []
+        for job_file in sorted(run_dir.glob("jobs/*/job.json")):
+            try:
+                job = json.loads(job_file.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if job.get("status") == "completed" and int(job.get("results_count", 0)) > 0:
+                completed_jobs.append((job_file.parent.name, job))
+
+        if not completed_jobs:
+            raise ValueError("Nenhum resultado disponível para exportar nesta execução")
+
+        paths = {}
+        if export_format in {"csv", "all"}:
+            jobs_with_csv = [
+                (job, self._job_csv_path(run_id, job_id, job))
+                for job_id, job in completed_jobs
+            ]
+            for _job, csv_path in jobs_with_csv:
+                if not csv_path.is_file():
+                    raise FileNotFoundError(f"Arquivo enriquecido não encontrado: {csv_path}")
+            paths["csv"] = str(self._write_run_csv(run_dir, jobs_with_csv))
+        if export_format in {"xlsx", "all"}:
+            paths["xlsx"] = str(self._get_or_build_run_xlsx(run_id, run_dir, run_file, run_data, completed_jobs))
+
+        self._emit_payload({
+            "type": "run_report_exported",
+            "correlation_id": payload.get("correlation_id"),
+            "run_id": run_id,
+            "paths": paths,
+        })
+
+    def _job_csv_path(self, run_id: str, job_id: str, job: dict) -> Path:
+        return Path(job["enriched_file"]) if job.get("enriched_file") else (
+            self.runner.store.job_output_path(run_id, job_id, enriched=True)
+        )
+
+    @staticmethod
+    def _write_run_csv(run_dir: Path, completed_jobs: list[tuple[dict, Path]]) -> Path:
+        output_path = run_dir / "exports" / "leads.csv"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        fieldnames = []
+        for name in ("run_id", "job_id", "city", "category", "category_slug"):
+            if name not in fieldnames:
+                fieldnames.append(name)
+        for _job, csv_path in completed_jobs:
+            with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
+                for name in csv.DictReader(handle).fieldnames or []:
+                    if name not in fieldnames:
+                        fieldnames.append(name)
+        if not fieldnames:
+            raise ValueError("Os arquivos enriquecidos não contêm colunas para exportação")
+
+        temporary_path = output_path.with_suffix(".csv.tmp")
+        row_count = 0
+        with temporary_path.open("w", encoding="utf-8-sig", newline="") as output:
+            writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            for job, csv_path in completed_jobs:
+                with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
+                    for row in csv.DictReader(handle):
+                        row.update({
+                            "run_id": str(job.get("run_id", run_dir.name)),
+                            "job_id": str(job.get("id", "")),
+                            "city": str(job.get("city", "")),
+                            "category": str(job.get("category", row.get("category", ""))),
+                            "category_slug": str(job.get("category_slug", "")),
+                        })
+                        writer.writerow(row)
+                        row_count += 1
+        if not row_count:
+            temporary_path.unlink(missing_ok=True)
+            raise ValueError("Os arquivos enriquecidos não contêm leads para exportação")
+        temporary_path.replace(output_path)
+        return output_path
+
+    def _get_or_build_run_xlsx(
+        self,
+        run_id: str,
+        run_dir: Path,
+        run_file: Path,
+        run_data: dict,
+        completed_jobs: list[tuple[str, dict]],
+    ) -> Path:
+        existing_report = run_data.get("report_file")
+        if existing_report and Path(existing_report).is_file():
+            return Path(existing_report)
+
+        jobs_with_csv = [
+            (job, self._job_csv_path(run_id, job_id, job))
+            for job_id, job in completed_jobs
+        ]
+        for _job, csv_path in jobs_with_csv:
+            if not csv_path.is_file():
+                raise FileNotFoundError(f"Arquivo enriquecido não encontrado: {csv_path}")
+
+        report_path = self.runner.store.report_path(run_id)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="_report_input_", dir=run_dir) as temp_dir:
+            import pandas as pd
+
+            frames_by_slug = {}
+            for job, csv_path in jobs_with_csv:
+                slug = str(job.get("category_slug") or job.get("category") or "outros")
+                frames_by_slug.setdefault(slug, []).append(pd.read_csv(csv_path, dtype=str))
+            files_by_slug = {}
+            for index, (slug, frames) in enumerate(frames_by_slug.items()):
+                input_path = Path(temp_dir) / f"{index}.csv"
+                pd.concat(frames, ignore_index=True).to_csv(input_path, index=False)
+                files_by_slug[slug] = str(input_path)
+
+            sys.path.insert(0, str(self.runner.crawler.mapscraper_root))
+            from gerar_relatorio import build_workbook
+
+            build_workbook(files_by_slug, str(report_path), lang=str(run_data.get("lang", "pt")))
+
+        run_data["report_file"] = str(report_path)
+        temporary_run_file = run_file.with_suffix(".json.tmp")
+        temporary_run_file.write_text(
+            json.dumps(run_data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        temporary_run_file.replace(run_file)
+        return report_path
+
     def _dispatch(self, payload: dict) -> None:
         command = payload.get("command")
         if command == "start_run":
             self._start_run(payload)
         elif command == "list_runs":
-            self._list_runs()
+            self._list_runs(payload)
         elif command == "load_run_leads":
             self._load_run_leads(payload)
+        elif command == "export_run_report":
+            self._export_run_report(payload)
         elif command == "catalog_states":
             self._emit_payload({
                 "type": "catalog_states",
