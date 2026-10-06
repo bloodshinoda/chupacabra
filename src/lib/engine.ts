@@ -15,6 +15,26 @@ export type TargetLocation = {
   is_capital?: boolean;
 };
 
+export type EngineRun = {
+  id: string;
+  profile: EngineProfile;
+  status: string;
+  total_jobs: number;
+  completed_jobs: number;
+  failed_jobs: number;
+  started_at?: string | null;
+  finished_at?: string | null;
+  report_file?: string | null;
+};
+
+export type LeadRecord = Record<string, string> & {
+  run_id: string;
+  job_id: string;
+  city: string;
+  category: string;
+  category_slug: string;
+};
+
 export type EngineEvent = {
   type: string;
   timestamp?: string;
@@ -151,6 +171,57 @@ async function requestEngineCatalog(
         });
       })
       .catch(reject);
+  });
+}
+
+export async function listRuns(): Promise<EngineRun[]> {
+  const response = await requestEngineData("list_runs");
+  return Array.isArray(response.runs) ? (response.runs as EngineRun[]) : [];
+}
+
+export async function loadRunLeads(runId: string): Promise<LeadRecord[]> {
+  const response = await requestEngineData("load_run_leads", { run_id: runId });
+  return Array.isArray(response.leads) ? (response.leads as LeadRecord[]) : [];
+}
+
+async function requestEngineData(
+  command: string,
+  payload: Record<string, unknown> = {},
+): Promise<EngineEvent & { runs?: EngineRun[]; leads?: LeadRecord[] }> {
+  if (!isTauriRuntime()) {
+    throw new Error("A base de leads está disponível apenas no aplicativo desktop Tauri.");
+  }
+
+  return new Promise((resolve, reject) => {
+    const correlationId = crypto.randomUUID();
+    let stop: UnlistenFn | undefined;
+    let settled = false;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      stop?.();
+      callback();
+    };
+
+    void listen<EngineEvent & { runs?: EngineRun[]; leads?: LeadRecord[] }>("engine-event", (event) => {
+      if (event.payload.correlation_id !== correlationId) return;
+      if (event.payload.type === command === false) return;
+      if (event.payload.type === "engine_error") {
+        finish(() => reject(new Error(event.payload.error ?? "Falha ao consultar o engine.")));
+      } else if (event.payload.type === "runs_list" || event.payload.type === "run_leads") {
+        finish(() => resolve(event.payload));
+      }
+    }).then((unlisten) => {
+      stop = unlisten;
+      if (settled) unlisten();
+      void invoke("engine_command", {
+        command: {
+          command,
+          correlation_id: correlationId,
+          ...payload,
+        },
+      }).catch((error) => finish(() => reject(error)));
+    }).catch(reject);
   });
 }
 
