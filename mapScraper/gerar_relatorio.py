@@ -71,7 +71,6 @@ COLS_I18N = {
         ("stars", "Avaliação", 10),
         ("reviews", "Nº Avaliações", 12),
         ("score", "Score (Lead)", 12),
-        ("segment", "Segmento", 12),
     ],
     "en": [
         ("title", "Name", 32),
@@ -84,7 +83,6 @@ COLS_I18N = {
         ("stars", "Rating", 10),
         ("reviews", "Reviews", 12),
         ("score", "Lead Score", 12),
-        ("segment", "Segment", 12),
     ],
 }
 
@@ -101,8 +99,8 @@ SUMMARY_I18N = {
         "chart1_x": "Categoria",
         "chart2": "Score Médio de Lead por Categoria",
         "chart2_x": "Score (0-100)",
-        "seg_title": "Distribuição de Segmentos (todas as categorias)",
-        "chart3": "Distribuição de Segmentos",
+        "seg_title": "Distribuição de Faixas de Score (todas as categorias)",
+        "chart3": "Distribuição de Faixas de Score",
     },
     "en": {
         "title": "Summary — Competitor/Partner Mapping",
@@ -116,8 +114,8 @@ SUMMARY_I18N = {
         "chart1_x": "Category",
         "chart2": "Average Lead Score by Category",
         "chart2_x": "Score (0-100)",
-        "seg_title": "Segment Distribution (all categories)",
-        "chart3": "Segment Distribution",
+        "seg_title": "Lead Score Distribution (all categories)",
+        "chart3": "Lead Score Distribution",
     },
 }
 
