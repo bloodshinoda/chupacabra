@@ -205,7 +205,6 @@ async function requestEngineData(
 
     void listen<EngineEvent & { runs?: EngineRun[]; leads?: LeadRecord[] }>("engine-event", (event) => {
       if (event.payload.correlation_id !== correlationId) return;
-      if (event.payload.type === command === false) return;
       if (event.payload.type === "engine_error") {
         finish(() => reject(new Error(event.payload.error ?? "Falha ao consultar o engine.")));
       } else if (event.payload.type === "runs_list" || event.payload.type === "run_leads") {
