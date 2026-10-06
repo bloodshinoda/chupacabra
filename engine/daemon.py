@@ -1,6 +1,7 @@
 """JSON-line daemon used by the Tauri bridge in the desktop application."""
 from __future__ import annotations
 
+import csv
 import errno
 import json
 import sys
@@ -161,10 +162,82 @@ class EngineDaemon:
             )
             self._run_thread.start()
 
+    def _list_runs(self) -> None:
+        root = Path(self.runner.store.root)
+        runs = []
+        if root.exists():
+            for run_file in sorted(root.glob("*/run.json"), key=lambda path: path.parent.name, reverse=True):
+                try:
+                    data = json.loads(run_file.read_text(encoding="utf-8"))
+                    runs.append({
+                        "id": data.get("id", run_file.parent.name),
+                        "profile": data.get("profile", ""),
+                        "status": data.get("status", ""),
+                        "total_jobs": data.get("total_jobs", 0),
+                        "completed_jobs": data.get("completed_jobs", 0),
+                        "failed_jobs": data.get("failed_jobs", 0),
+                        "started_at": data.get("started_at"),
+                        "finished_at": data.get("finished_at"),
+                        "report_file": data.get("report_file"),
+                    })
+                except (OSError, json.JSONDecodeError):
+                    continue
+        self._emit_payload({
+            "type": "runs_list",
+            "correlation_id": payload.get("correlation_id"),
+            "runs": runs,
+        })
+
+    def _load_run_leads(self, payload: dict) -> None:
+        run_id = str(payload.get("run_id", "")).strip()
+        if not run_id:
+            raise ValueError("run_id is required")
+
+        run_dir = self.runner.store.run_dir(run_id)
+        if not run_dir.exists():
+            raise ValueError(f"Execução não encontrada: {run_id}")
+
+        leads = []
+        for job_file in sorted(run_dir.glob("jobs/*/job.json")):
+            try:
+                job = json.loads(job_file.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+
+            enriched_file = job.get("enriched_file")
+            csv_path = Path(enriched_file) if enriched_file else self.runner.store.job_output_path(
+                run_id, job_file.parent.name, enriched=True
+            )
+            if not csv_path.exists():
+                continue
+
+            try:
+                with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
+                    for row in csv.DictReader(handle):
+                        row["run_id"] = run_id
+                        row["job_id"] = str(job.get("id", job_file.parent.name))
+                        row["city"] = str(job.get("city", ""))
+                        row["category"] = str(job.get("category", row.get("category", "")))
+                        row["category_slug"] = str(job.get("category_slug", ""))
+                        leads.append(row)
+            except (OSError, UnicodeError):
+                continue
+
+        self._emit_payload({
+            "type": "run_leads",
+            "correlation_id": payload.get("correlation_id"),
+            "run_id": run_id,
+            "leads": leads,
+        })
+
     def _dispatch(self, payload: dict) -> None:
         command = payload.get("command")
         if command == "start_run":
             self._start_run(payload)
+        elif command == "list_runs":
+            self._list_runs()
+        elif command == "load_run_leads":
+            self._load_run_leads(payload)
         elif command == "catalog_states":
             self._emit_payload({
                 "type": "catalog_states",
