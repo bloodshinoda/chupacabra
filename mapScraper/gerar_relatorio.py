@@ -62,10 +62,12 @@ FRIENDLY_NAMES = {
 COLS_I18N = {
     "pt": [
         ("title", "Nome", 32),
-        ("category", "Categoria (Google)", 20),
+        ("category", "Categoria", 20),
         ("phoneNumber", "Telefone", 16),
         ("address", "Endereço", 42),
         ("domain", "Site/Domínio", 24),
+        ("web_cnpj", "CNPJ", 18),
+        ("cnpj_porte", "Porte", 18),
         ("stars", "Avaliação", 10),
         ("reviews", "Nº Avaliações", 12),
         ("score", "Score (Lead)", 12),
@@ -73,10 +75,12 @@ COLS_I18N = {
     ],
     "en": [
         ("title", "Name", 32),
-        ("category", "Category (Google)", 20),
+        ("category", "Category", 20),
         ("phoneNumber", "Phone", 16),
         ("address", "Address", 42),
         ("domain", "Website/Domain", 24),
+        ("web_cnpj", "CNPJ", 18),
+        ("cnpj_porte", "Company Size", 18),
         ("stars", "Rating", 10),
         ("reviews", "Reviews", 12),
         ("score", "Lead Score", 12),
@@ -228,8 +232,6 @@ def build_workbook(files_by_slug: dict, out_path: str, lang: str = "pt"):
                 val = row.get(key, "")
                 if pd.isna(val):
                     val = ""
-                if key == "segment" and val != "":
-                    val = localize_segment(val, lang_key)
                 if key in ("stars", "score") and val != "":
                     try:
                         val = float(val)
@@ -243,7 +245,7 @@ def build_workbook(files_by_slug: dict, out_path: str, lang: str = "pt"):
                 c = ws.cell(row=r, column=j, value=val)
                 c.font = BASE_FONT
                 c.border = BORDER
-                c.alignment = CENTER if key in ("stars", "reviews", "phoneNumber", "score", "segment") else LEFT
+                c.alignment = CENTER if key in ("stars", "reviews", "phoneNumber", "score", "segment", "web_cnpj", "cnpj_porte") else LEFT
 
                 if key == "phoneNumber" and is_mobile(str(val)):
                     c.fill = MOBILE_FILL
