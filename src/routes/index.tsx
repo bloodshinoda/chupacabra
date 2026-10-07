@@ -360,7 +360,7 @@ function Sidebar({ view, setView, open, setOpen, scanState, engineOnline, onAbou
       <div className="border-t border-border px-5 py-4">
         <button onClick={onAbout} className="flex w-full items-center justify-between text-left font-mono text-[9px] text-muted-foreground transition-colors hover:text-foreground">
           <span className="uppercase">Sobre</span>
-          <span className="text-primary">v0.3.1</span>
+          <span className="text-primary">v1.0.0</span>
         </button>
       </div>
     </aside>
@@ -399,7 +399,7 @@ function AboutDialog({
           <div className="border border-border bg-surface p-4">
             <div className="flex items-center justify-between">
               <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{t("about.version")}</span>
-              <span className="font-mono text-sm font-semibold text-primary">0.3.1</span>
+              <span className="font-mono text-sm font-semibold text-primary">1.0.0</span>
             </div>
             <div className="mt-3 flex items-center justify-between">
               <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{t("about.engine")}</span>
@@ -905,13 +905,70 @@ function scoreBandOf(lead: LeadRecord) {
 function StatusBadge({status}:{status:string}) { return <span className={cn("status-badge", status==="Qualificado"&&"status-success", status==="Em análise"&&"status-info", status==="Descartado"&&"status-muted")}>{status}</span>; }
 
 function OutreachView() {
- const [provider,setProvider]=useState("Ollama"); const [tone,setTone]=useState("Consultivo"); const [generated,setGenerated]=useState(false);
- return <><PageIntro eyebrow="Engine agnóstica" title="Automação de Abordagem" description="Conecte seu modelo preferido e gere mensagens comerciais contextualizadas." />
-  <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]"><section className="panel p-5"><div className="flex items-center gap-3"><div className="grid size-9 place-items-center bg-primary/10 text-primary"><Network className="size-4"/></div><div><h3 className="font-display font-semibold">Modelo de linguagem</h3><p className="text-xs text-muted-foreground">Selecione o motor de geração</p></div></div><div className="mt-5 grid grid-cols-3 gap-2">{["Ollama","Qwen","OpenAI"].map(p=><button key={p} onClick={()=>setProvider(p)} className={cn("provider-button",provider===p&&"provider-active")}><span className="font-display text-sm font-semibold">{p}</span><span className="text-[9px] text-muted-foreground">{p==="OpenAI"?"API":"Local"}</span></button>)}</div><div className="mt-5 space-y-4"><label className="block"><span className="field-label">Endpoint do modelo</span><input className="field mt-2 font-mono text-xs" value={provider==="OpenAI"?"https://api.openai.com/v1":"http://localhost:11434"} readOnly/></label><label className="block"><span className="field-label">Tom da mensagem</span><SelectField value={tone} setValue={setTone} options={["Consultivo","Direto","Executivo","Amigável"]}/></label><label className="block"><span className="field-label">Contexto da oferta</span><textarea className="field mt-2 min-h-28 resize-none" defaultValue="Auditoria gratuita de presença digital e oportunidades comerciais para empresas B2B."/></label><div className="flex items-center justify-between border-t border-border pt-4"><span className="text-xs">Personalização por lead</span><Switch defaultChecked/></div></div></section>
-  <section className="panel overflow-hidden"><div className="flex items-center justify-between border-b border-border p-5"><div><h3 className="font-display font-semibold">Pré-visualização</h3><p className="text-xs text-muted-foreground">Lead 01 de 386 · Nexus Tecnologia</p></div><Sparkles className="size-5 text-info"/></div><div className="p-5"><div className="flex items-center gap-3 border border-border bg-surface p-4"><div className="grid size-9 place-items-center bg-info/10 text-info"><Building2 className="size-4"/></div><div><p className="text-sm font-medium">Marina · Nexus Tecnologia</p><p className="text-[10px] text-muted-foreground">Diretora Comercial · São Paulo</p></div><span className="ml-auto status-badge status-success">82% fit</span></div><div className="relative mt-4 min-h-64 border border-border bg-terminal p-5 font-mono text-sm leading-7 text-terminal-text">{generated ? <p>Olá Marina, tudo bem?<br/><br/>Analisei a presença digital da Nexus Tecnologia e identifiquei algumas oportunidades para ampliar a geração de demanda B2B em São Paulo. Preparamos uma auditoria objetiva, sem custo, com os principais pontos de crescimento.<br/><br/>Faz sentido reservar 15 minutos esta semana para eu compartilhar os achados?</p> : <div className="absolute inset-0 grid place-items-center text-center"><div><Bot className="mx-auto size-8 text-muted-foreground"/><p className="mt-3 text-xs text-muted-foreground">Configure o modelo e gere uma amostra</p></div></div>}</div><div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end"><Button variant="outline" onClick={()=>setGenerated(false)}>Limpar</Button><Button onClick={()=>setGenerated(true)}><Sparkles/> Gerar pitch com {provider}</Button>{generated&&<Button><Send/> Aprovar</Button>}</div></div></section></div>
- </>;
-}
+  const [open, setOpen] = useState(true);
 
+  return (
+    <>
+      <PageIntro
+        eyebrow="Inteligência artificial"
+        title="Automação de Abordagem"
+        description="Geração de mensagens comerciais contextualizadas e automação inteligente de abordagem."
+      />
+
+      <section className="panel relative overflow-hidden p-8 sm:p-10">
+        <div className="absolute -right-16 -top-16 size-48 rounded-full bg-primary/10 blur-3xl" />
+        <div className="relative mx-auto max-w-2xl text-center">
+          <div className="mx-auto grid size-16 place-items-center border border-primary/30 bg-primary/10 text-primary shadow-glow">
+            <Sparkles className="size-7" />
+          </div>
+          <p className="mt-6 font-mono text-[10px] uppercase tracking-[0.22em] text-primary">
+            Módulo de IA
+          </p>
+          <h3 className="mt-2 font-display text-2xl font-bold tracking-wide sm:text-3xl">
+            Inteligência artificial está a caminho
+          </h3>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
+            Estamos preparando a camada de IA do Chupacabra para gerar abordagens
+            comerciais contextualizadas a partir dos leads coletados.
+          </p>
+          <Button className="mt-6" onClick={() => setOpen(true)}>
+            <Sparkles /> Em breve
+          </Button>
+        </div>
+      </section>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-md border-primary/20 bg-[#0b151b] text-foreground">
+          <DialogHeader className="text-center sm:text-center">
+            <div className="mx-auto grid size-14 place-items-center border border-primary/30 bg-primary/10 text-primary shadow-glow">
+              <Sparkles className="size-6" />
+            </div>
+            <DialogTitle className="mt-2 font-display text-2xl tracking-wide">
+              IA · Em breve
+            </DialogTitle>
+            <DialogDescription className="mx-auto max-w-sm leading-6">
+              Este módulo está reservado para a próxima fase do Chupacabra System.
+              A base de prospecção e os dados dos leads já estão prontos para receber
+              a camada de inteligência.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="border border-border bg-surface p-4">
+            <div className="flex items-center gap-3">
+              <Bot className="size-5 text-primary" />
+              <div>
+                <p className="text-sm font-medium">Geração e automação comercial</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Em desenvolvimento · aguarde a próxima atualização.
+                </p>
+              </div>
+            </div>
+          </div>
+          <Button onClick={() => setOpen(false)}>Entendido</Button>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
 function ReportsView() {
   const [runs, setRuns] = useState<EngineRun[]>([]);
   const [selectedRunId, setSelectedRunId] = useState("");
