@@ -1,6 +1,6 @@
 [package]
 name = "chupacabra"
-version = "0.5.0"
+version = "1.0.0"
 description = "Chupacabra System desktop application"
 authors = ["Vilson de Oliveira Junior"]
 edition = "2021"
