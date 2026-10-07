@@ -1,14 +1,17 @@
-# Chupacabra System
+# Chupacabra System 🦇
 
-**B2B Prospect Engine** para pesquisa de empresas por cidade e nicho, com crawler assíncrono, enriquecimento de leads (incluindo CNPJ), execução controlada por perfis e interface desktop baseada em Tauri.
+**B2B Prospect Engine.** O nome não é metáfora de marketing: o bicho foi feito pra **chupar** lead — cidade, nicho, telefone, site, score, CNPJ, o combo.
 
-> **Versão 1.0.0 (stable)** — primeira base funcional consolidada: engine integrado, **Base de Leads real**, **Relatórios** por execução (XLSX/CSV), enriquecimento com CNPJ/BrasilAPI, CI Windows + Linux e instaladores NSIS/DEB. Branch oficial: `main`.
+Crawler assíncrono, enriquecimento, perfis de execução e desktop Tauri. Você monta a matriz, aperta o botão, e o resto é sangue no XLSX.
 
-Release: [v1.0.0](https://github.com/bloodshinoda/chupacabra/releases/tag/v1.0.0)
+> **Versão 1.0.0 (stable)** — primeira versão que dá pra olhar no espelho sem ver mock. Engine real, **Base de Leads** de verdade, **Relatórios** do que foi chupado, CNPJ/BrasilAPI, CI Windows + Linux, instalador NSIS/DEB. Branch oficial: `main` (só ela; o resto é lenda urbana).
 
-## Objetivo
+Release: [v1.0.0](https://github.com/bloodshinoda/chupacabra/releases/tag/v1.0.0)  
+🐾 *Chupacabra tá pronto pra chupar.*
 
-O Chupacabra transforma prospecção B2B em uma aplicação desktop integrada:
+## O que esse monstro faz
+
+Prospecção B2B sem viver em planilha na mão e script solto:
 
 ```text
 Interface React/TanStack
@@ -21,48 +24,41 @@ Interface React/TanStack
         ↓
  placesCrawlerV2
         ↓
- coleta → deduplicação → enriquecimento → leads + relatórios
+ coleta → dedupe → enriquecimento → leads + relatórios
 ```
 
-A meta de distribuição principal é **Windows + instalador NSIS por máquina** (`Program Files`). O CI também gera pacote **DEB** para Linux.
+Alvo principal de distribuição: **Windows + NSIS** em `Program Files`. Linux ganha **DEB** no CI (irmão mais novo, mas já entra na festa).
 
-O desenvolvimento oficial ocorre **somente no branch `main`**.
-
-## Estado atual (1.0.0)
+## Estado atual (1.0.0) — o que já mama
 
 ### Engine
 
-- `placesCrawlerV2` é o crawler principal.
-- Coleta assíncrona via `aiohttp` e paginação do Google Maps.
-- Deduplicação por `place_id`, com contagem de coletados, únicos e duplicados no painel.
-- Retry com backoff.
-- Perfis de execução: `rapido`, `balanceado`, `chupacabra`.
-- Runs em pastas locais no formato `YYYY-MM-DD HH.MM` (dados **não** versionados; ver `.gitignore`).
-- Enriquecimento: telefone, site, domínio, avaliação, **score**, **segmento/porte**, **CNPJ** (extração no site + consulta BrasilAPI quando disponível).
-- Daemon Python com protocolo JSON por stdin/stdout.
-- Eventos de ciclo de vida: início, jobs, progresso, conclusão, falha, cancelamento, logs e relatório final.
-- Protocolo protegido contra UTF-8/mojibake entre Python, Rust e Windows.
-- Relatório final XLSX após enriquecimento (abas sanitizadas para Excel), com CNPJ, porte e faixa de score.
+- `placesCrawlerV2` manda na coleta.
+- `aiohttp`, paginação do Maps, dedupe por `place_id` (coletado vs único vs lixo duplicado no painel).
+- Retry com backoff — o Maps não é buffet livre.
+- Perfis: `rapido`, `balanceado`, `chupacabra` (esse último é fome mesmo).
+- Runs em pastas `YYYY-MM-DD HH.MM` — **local**, fora do git. Lead no repo público é crime de guerra.
+- Enriquecimento: telefone, site, domínio, avaliação, **score**, **porte**, **CNPJ** (site + BrasilAPI quando rola).
+- Daemon JSON stdin/stdout; eventos de ciclo de vida pra UI não ficar no escuro.
+- UTF-8/mojibake entre Python, Rust e Windows: a gente já tomou essa porrada e tratou.
+- XLSX no final, abas que o Excel não vomita, com CNPJ/porte/score.
 
 ### Tauri
 
-O bridge Rust (`engine_runtime`) inicia o engine e encaminha stdout/stderr para eventos do frontend.
+Rust (`engine_runtime`) sobe o engine e joga stdout/stderr pra interface.
 
-Em desenvolvimento: `python -m engine.daemon` a partir da raiz do projeto.
+Dev: `python -m engine.daemon` na raiz.  
+Build Windows: engine **PyInstaller one-file** embutido — usuário final **não precisa de Python** (e graças a Deus).
 
-No build Windows, o engine vira executável **self-contained (PyInstaller)** e é embutido como recurso do Tauri — a instalação final **não exige Python** no PC do usuário.
-
-Dados do usuário (instalado):
+Dados instalados:
 
 ```text
 %USERPROFILE%\Documents\Chupacabra System\
 ```
 
-Frontend de produção: `.output/public` (TanStack/Nitro).
+Frontend prod: `.output/public`. Dev: `127.0.0.1:5173` (porta teimosa de propósito).
 
-Dev server: `127.0.0.1:5173` com porta estrita.
-
-### Distribuição 1.0.0
+### Como o instalador nasce
 
 ```text
 engine/daemon.py
@@ -76,21 +72,19 @@ Tauri resource
 NSIS (Windows) / DEB (Linux CI)
 ```
 
-Build do engine: `npm run build:engine` → `scripts/build-engine.mjs` + `requirements-build.txt` (só no ambiente de build).
+`npm run build:engine` + `requirements-build.txt` só no build. Em dev: `CHUPACABRA_PYTHON` / `CHUPACABRA_ROOT` ou `python` no PATH. Teste de dados: `CHUPACABRA_DATA_ROOT`.
 
-O `src-tauri` prioriza o engine empacotado; em dev usa `CHUPACABRA_PYTHON` / `CHUPACABRA_ROOT` ou `python` no PATH. Dados de teste: `CHUPACABRA_DATA_ROOT`.
+### Frontend — onde você aperta o botão
 
-### Frontend
+- **Painel** — run de verdade, jobs, pausa estocástica (o bicho respira entre as vítimas)
+- **Matriz de Alvos** — cidades (IBGE e afins) + **montanha de nichos B2B** (`src/lib/niches.ts`)
+- **Base de Leads** — o que foi chupado, filtrável (empresa, cidade, score, CNPJ, site…)
+- **Relatórios** — XLSX/CSV da execução, sem teatro
+- **Automação** — cadeira reservada; ainda não manda mensagem pra ninguém
+- **IA** — modal “em breve”; **1.0 não inventa copy sozinha**
+- Splash do **Chupacabrinha** na abertura (sim, ele existe)
 
-- **Painel de Controle** — execução real, telemetria de jobs, pausa estocástica entre jobs
-- **Matriz de Alvos** — cidades (IBGE / catálogo) e **centenas de nichos B2B** com autocomplete (`src/lib/niches.ts`)
-- **Base de Leads** — dados reais das runs (busca/filtros por empresa, categoria, cidade, score, CNPJ, site)
-- **Relatórios** — XLSX/CSV por execução, a partir do que o engine gerou
-- **Automação / Abordagem** — espaço reservado; automação comercial fica para versões futuras
-- **IA** — modal “em breve”; **fora do escopo funcional da 1.0.0**
-- Splash do Chupacabrinha na abertura (`public/chupacabra-splash.png`)
-
-## Perfis de execução
+## Perfis de fome
 
 | Perfil | Limite padrão | Sites | Concorrência web | Intervalo |
 |---|---:|---|---:|---:|
@@ -98,123 +92,79 @@ O `src-tauri` prioriza o engine empacotado; em dev usa `CHUPACABRA_PYTHON` / `CH
 | `balanceado` | 500 | sim | 8 | 8–16 s |
 | `chupacabra` | 1000 | sim | 10 | 15–35 s |
 
-Valores operacionais — não são garantias de quantidade de resultados.
+São alvos operacionais, não promessa de “mil leads quentinhos”. O Maps decide quantos sobram depois do dedupe.
 
 ## Matriz de prospecção
 
-A matriz é **cidade × nicho**, montada na interface e executada pelo runner:
+**Cidade × nicho.** Você monta, o runner executa.
 
-- Geografia: municípios brasileiros (IBGE) e busca de cidades no exterior via engine
-- Nichos: lista expandida de categorias B2B (marketing, TI, saúde, indústria, varejo, serviços, etc.), com suporte a nichos personalizados
+- Geografia: municípios BR (IBGE) + busca fora via engine
+- Nichos: marketing, TI, saúde, indústria, varejo, serviços… e o que você inventar de custom
 
-O limite de jobs da run é configurável na Matriz de Alvos.
+Tem limite de jobs na matriz pra não mandar o PC (nem o IP) pro hospital.
 
-## Relatórios e exportação
+## Relatórios — o sangue engarrafado
 
-Após coleta e enriquecimento, o engine consolida os CSVs da run e gera o XLSX da execução. Na interface (1.0):
+Depois da coleta/enriquecimento: CSV consolidado + XLSX da run. Na UI 1.0:
 
-- listagem de relatórios por execução
-- exportação CSV de leads
-- exportação combinada da execução
-- colunas relevantes: empresa, contato, score, **porte**, **CNPJ**, categoria, etc.
+- lista por execução
+- export CSV de leads
+- export combinado
+- colunas que importam: contato, score, **porte**, **CNPJ**, categoria…
 
-Dados intermediários ficam ligados a `run_id`, cidade, categoria e job (pastas locais / Documents no Windows).
+Tudo amarrado em `run_id` / job. Regenerar relatório sem re-chupar a cidade inteira é o sonho; a estrutura já aponta pra isso.
 
-## Diretórios de dados no Windows
-
-**Programa em `Program Files`; dados do usuário em `Documents`; cache/logs em `LocalAppData`; compartilhados em `ProgramData`.**
+## Onde o Windows guarda a bagunça
 
 ```text
 C:\Program Files\Chupacabra System\
-    aplicação e recursos instalados
+    o executável e a alma instalada
 
 C:\ProgramData\Chupacabra System\
-    configuração compartilhada (quando necessário)
+    config compartilhada (se precisar)
 
 %LOCALAPPDATA%\Chupacabra System\
-    cache, estado temporário e logs
+    cache, logs, coisa suja de sessão
 
 %USERPROFILE%\Documents\Chupacabra System\
-    runs, relatórios e exports
+    runs, relatórios, exports — o estoque de leads
 ```
 
-Em desenvolvimento, `runs/` na raiz do projeto é local e está no `.gitignore`. CSVs de leads e XLSX de relatório **não** devem ser versionados.
+Dev: `runs/` na raiz, no `.gitignore`. **Não commit lead.** Telefone de terceiros no GitHub público é o tipo de PR que o universo devolve com juros.
 
 ## Instalador NSIS
 
-Instalador `.exe` **perMachine**:
+`.exe` **perMachine**: admin, `Program Files`, todo mundo no PC, `HKLM`, atalho **Chupacabra System**, PT-BR.
 
-- elevação administrativa;
-- `Program Files` por padrão;
-- disponível para todos os usuários;
-- metadados em `HKLM`;
-- atalho no Menu Iniciar: `Chupacabra System`;
-- tradução `PortugueseBR`.
+Splash: `public/chupacabra-splash.png`.  
+Artes opcionais do instalador: header **150×57**, sidebar **164×314**. Ícones em `src-tauri/icons/`.
 
-### Splash
+## Desenvolvimento — alimentar o bicho em casa
 
-Arte do Chupacabrinha na abertura; fonte em `public/chupacabra-splash.png`.
-
-### Artes do instalador (opcional)
-
-| Arquivo | Uso | Dimensão |
-|---|---|---:|
-| `header.bmp` | cabeçalho | **150 × 57 px** |
-| `sidebar.bmp` | lateral | **164 × 314 px** |
-| `uninstaller-header.bmp` | desinstalador | **150 × 57 px** |
-
-Ícones em `src-tauri/icons/`.
-
-## Desenvolvimento
-
-Branch de trabalho: **`main`** apenas.
-
-### Frontend
+Só **`main`**.
 
 ```bash
+# frontend
 npm install
 npm run dev
-```
 
-### Engine
-
-```bash
+# engine
 python -m pip install -r mapScraper/requirements.txt
 python -m engine.daemon
-```
 
-### Smoke test
-
-```bash
+# smoke
 python -m engine.main --profile rapido --query "Agencias de publicidade em Chapeco SC"
-```
 
-### Rust / Tauri
-
-```bash
+# rust
 cargo check --manifest-path src-tauri/Cargo.toml
 npx tauri dev
 ```
 
-## Build
-
-### Frontend
+## Build — engarrafar
 
 ```bash
-npm run build
-```
-
-### Engine self-contained
-
-```bash
-npm run build:engine
-```
-
-Gera `engine/dist/chupacabra-engine.exe` (Windows).
-
-### Instalador Windows (NSIS)
-
-```bash
+npm run build                 # frontend
+npm run build:engine          # chupacabra-engine.exe
 npx tauri build --bundles nsis
 ```
 
@@ -222,36 +172,39 @@ npx tauri build --bundles nsis
 
 ### CI
 
-- **Build Windows** — NSIS artifact + release em tags `v*`
-- **Build Linux** — DEB artifact + release em tags `v*`
+- Windows → NSIS + release em tags `v*`
+- Linux → DEB + release em tags `v*`
 
-Triggers: push em `main`, tags `v*`, `workflow_dispatch`.
+Push em `main`, tags `v*`, ou `workflow_dispatch`.  
+Assinatura de código e teste em Windows limpo ainda são “faça antes de soltar pros desconhecidos”.
 
-Assinatura de código e validação em Windows limpo ainda são recomendados antes de distribuição ampla.
-
-## Arquitetura do repositório
+## Mapa do antro
 
 ```text
 chupacabra/
-├── src/                     # frontend React/TanStack
-├── src-tauri/               # Tauri/Rust (engine_runtime)
-├── engine/                  # daemon, crawler, geography, orchestration, storage
-├── mapScraper/              # crawler, pipeline, enrichment, gerar_relatorio
-├── scripts/                 # build-engine.mjs, prepare-assets
-├── tests/                   # testes Python
-├── .github/workflows/       # build-windows, build-linux
-└── README.md
+├── src/                     # React/TanStack — o painel
+├── src-tauri/               # Rust — a ponte
+├── engine/                  # daemon, geography, orchestration
+├── mapScraper/              # crawler, enrichment, XLSX
+├── scripts/                 # build do engine, assets
+├── tests/                   # pra não chupar errado duas vezes
+├── .github/workflows/       # Windows + Linux
+└── README.md                # você está aqui
 ```
 
-## Próximos marcos
+## Próximas vítimas (roadmap)
 
-1. Automação de abordagem comercial (hoje só reservada na UI).
-2. Módulo de IA (modal preparado; fora do escopo 1.0.0).
-3. Histórico de execuções ainda mais rico na interface.
-4. Relatórios adicionais por cidade + consolidado, se necessário.
-5. Assinatura de código do instalador Windows.
-6. Validação contínua em Windows limpo e matriz de testes ampliada.
+1. Automação de abordagem (hoje é só a cadeira vazia)
+2. IA de verdade (modal já provocando; 1.0 não alucina pitch)
+3. Histórico de runs ainda mais carnudo na UI
+4. Relatório por cidade + consolidado, se a fome pedir
+5. Assinatura do instalador
+6. Mais teste em máquina limpa
 
 ## Plataformas
 
-Tauri cobre Windows, Linux e macOS. O alvo oficial de distribuição é **Windows (NSIS)**; o CI Linux (DEB) valida o build e gera artefato experimental.
+Tauri fala Windows, Linux e macOS. **Oficial pra distribuir: Windows.** Linux no CI é o laboratório que também gera `.deb`.
+
+---
+
+Feito pra chupar. Com perfil, limite de jobs e relatório no final — porque até monstro precisa de processinho.
