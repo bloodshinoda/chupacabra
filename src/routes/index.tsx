@@ -383,7 +383,7 @@ function AboutDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md border-primary/20 bg-[#0b151b] text-foreground">
+      <DialogContent className="max-w-md border-primary/20 bg-[#0b151b]/95 backdrop-blur-xl text-foreground">
         <DialogHeader className="text-left">
           <div className="mb-3 flex items-center gap-4">
             <div className="grid size-16 shrink-0 place-items-center overflow-hidden border border-primary/30 bg-primary/10 p-2 shadow-glow">
