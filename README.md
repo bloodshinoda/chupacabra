@@ -103,7 +103,7 @@ São alvos operacionais, não promessa de “mil leads quentinhos”. O Maps dec
 **Cidade × nicho.** Você monta, o runner executa.
 
 - Geografia: municípios BR (IBGE) + busca fora via engine
-- Nichos: marketing, TI, saúde, indústria, varejo, serviços… e o que você inventar de custom
+- Nichos: Acompanhantes, Igrejas evangélicas com café da manhã, Casas de apostas, Academias de Crossfrit, Sex Shop… e o que você inventar de custom
 
 Tem limite de jobs na matriz pra não mandar o PC (nem o IP) pro hospital.
 
