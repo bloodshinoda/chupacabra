@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="src-tauri/icons/icon.png" alt="Chupacabra System" width="280" />
+</p>
+
 # Chupacabra System 🦇
 
 **B2B Prospect Engine.** O nome não é metáfora de marketing: o bicho foi feito pra **chupar** lead — cidade, nicho, telefone, site, score, CNPJ, o combo.
@@ -82,7 +86,7 @@ NSIS (Windows) / DEB (Linux CI)
 - **Relatórios** — XLSX/CSV da execução, sem teatro
 - **Automação** — cadeira reservada; ainda não manda mensagem pra ninguém
 - **IA** — modal “em breve”; **1.0 não inventa copy sozinha**
-- Splash do **Chupacabrinha** na abertura (sim, ele existe)
+- Splash do **Chupacabrinha** na abertura (mesma arte do ícone acima)
 
 ## Perfis de fome
 
@@ -136,7 +140,7 @@ Dev: `runs/` na raiz, no `.gitignore`. **Não commit lead.** Telefone de terceir
 
 `.exe` **perMachine**: admin, `Program Files`, todo mundo no PC, `HKLM`, atalho **Chupacabra System**, PT-BR.
 
-Splash: `public/chupacabra-splash.png`.  
+Arte do bicho: `src-tauri/icons/icon.png` (e cópia gerada em `public/icon.png` no build).  
 Artes opcionais do instalador: header **150×57**, sidebar **164×314**. Ícones em `src-tauri/icons/`.
 
 ## Desenvolvimento — alimentar o bicho em casa
@@ -189,7 +193,7 @@ chupacabra/
 ├── scripts/                 # build do engine, assets
 ├── tests/                   # pra não chupar errado duas vezes
 ├── .github/workflows/       # Windows + Linux
-└── README.md                # você está aqui
+└── README.md                # você está aqui (com o bixin em cima)
 ```
 
 ## Próximas vítimas (roadmap)
