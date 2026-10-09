@@ -8,9 +8,9 @@
 
 Crawler assíncrono, enriquecimento, perfis de execução e desktop Tauri. Você monta a matriz, aperta o botão, e o resto é sangue no XLSX.
 
-> **Versão 1.0.0 (stable)** — primeira versão que dá pra olhar no espelho sem ver mock. Engine real, **Base de Leads** de verdade, **Relatórios** do que foi chupado, CNPJ/BrasilAPI, CI Windows + Linux, instalador NSIS/DEB. Branch oficial: `main` (só ela; o resto é lenda urbana).
+> **Versão 1.1.0 (stable)** — primeira versão que dá pra olhar no espelho sem ver mock. Engine real, **Base de Leads** de verdade, **Relatórios** do que foi chupado, CNPJ/BrasilAPI, CI Windows + Linux, instalador NSIS/DEB. Branch oficial: `main` (só ela; o resto é lenda urbana).
 
-Release: [v1.0.0](https://github.com/bloodshinoda/chupacabra/releases/tag/v1.0.0)  
+Release: [v1.1.0](https://github.com/bloodshinoda/chupacabra/releases/tag/v1.1.0)  
 🐾 *Chupacabra tá pronto pra chupar.*
 
 ## O que esse monstro faz
@@ -33,7 +33,7 @@ Interface React/TanStack
 
 Alvo principal de distribuição: **Windows + NSIS** em `Program Files`. Linux ganha **DEB** no CI (irmão mais novo, mas já entra na festa).
 
-## Estado atual (1.0.0) — o que já mama
+## Estado atual (1.1.0) — o que já mama
 
 ### Engine
 

@@ -450,7 +450,7 @@ function Sidebar({ view, setView, open, setOpen, scanState, engineOnline, onAbou
       <div className="border-t border-border px-5 py-4">
         <button onClick={onAbout} className="flex w-full items-center justify-between text-left font-mono text-[9px] text-muted-foreground transition-colors hover:text-foreground">
           <span className="uppercase">Sobre</span>
-          <span className="text-primary">v1.0.0</span>
+          <span className="text-primary">v1.1.0</span>
         </button>
       </div>
     </aside>
@@ -489,7 +489,7 @@ function AboutDialog({
           <div className="border border-border bg-surface p-4">
             <div className="flex items-center justify-between">
               <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{t("about.version")}</span>
-              <span className="font-mono text-sm font-semibold text-primary">1.0.0</span>
+              <span className="font-mono text-sm font-semibold text-primary">1.1.0</span>
             </div>
             <div className="mt-3 flex items-center justify-between">
               <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-muted-foreground">{t("about.engine")}</span>
