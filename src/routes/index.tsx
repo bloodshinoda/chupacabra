@@ -39,7 +39,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -54,6 +60,7 @@ import {
   exportRunReport,
   isTauriRuntime,
   listenEngineEvents,
+  listProfileSettings,
   listRuns,
   loadBrazilCities,
   loadBrazilStates,
@@ -61,8 +68,11 @@ import {
   loadRunLeads,
   pauseRun,
   resumeRun,
+  saveProfileSettings,
   startRun,
   type EngineProfile,
+  type EngineProfileSettings,
+  type EngineProfileSettingsMap,
   type LeadRecord,
   type RunReportFormat,
   type TargetLocation,
@@ -83,8 +93,36 @@ export const Route = createFileRoute("/")({
   component: ChupacabraDashboard,
 });
 
-type View = "dashboard" | "targets" | "leads" | "outreach" | "reports";
+type View = "dashboard" | "targets" | "leads" | "outreach" | "reports" | "profiles";
 type ScanState = "idle" | "running" | "paused";
+
+const PROFILE_INFO: Record<EngineProfile, { label: string; description: string }> = {
+  rapido: {
+    label: "Rápido",
+    description: "Snack run. Bebe o que tá na vitrine e sai correndo — sem abrir site, sem CNPJ, sem drama. Ideal pra ‘só quero ver se tem peixe nesse lago’.",
+  },
+  balanceado: {
+    label: "Balanceado",
+    description: "Fome de adulto responsável. Coleta, dá uma fuçada nos sites e não tenta beber o Maps inteiro de uma vez. O padrão de quem quer lead usable sem virar a noite.",
+  },
+  chupacabra: {
+    label: "Chupacabra",
+    description: "Modo monstro. Mais fome, mais site, mais espera entre as mordidas pra não levar bloqueio na cara. Quando o negócio é encher o balde e lamber o fundo.",
+  },
+};
+
+const PROFILE_IDS: EngineProfile[] = ["rapido", "balanceado", "chupacabra"];
+
+const PROFILE_BOUNDS: Record<keyof EngineProfileSettings, readonly [number, number]> = {
+  limit: [1, 5000],
+  scraper_concurrency: [1, 5],
+  scrape_websites: [0, 1],
+  web_concurrency: [1, 20],
+  web_batch_size: [1, 500],
+  web_timeout: [1, 60],
+  delay_min: [0, 120],
+  delay_max: [0, 120],
+};
 
 const NAV_ITEMS = [
   { id: "dashboard" as const, label: "Painel de Controle", icon: LayoutDashboard },
@@ -92,6 +130,7 @@ const NAV_ITEMS = [
   { id: "leads" as const, label: "Base de Leads", icon: Database },
   { id: "outreach" as const, label: "Automação", sub: "de Abordagem", icon: Bot },
   { id: "reports" as const, label: "Relatórios", sub: "e Exportação", icon: FileSpreadsheet },
+  { id: "profiles" as const, label: "Perfis de execução", sub: "e Configurações", icon: Gauge },
 ];
 
 const INITIAL_LOGS = [
@@ -117,6 +156,12 @@ function ChupacabraDashboard() {
   const [duplicateCount, setDuplicateCount] = useState(0);
   const [stochasticTimer, setStochasticTimer] = useState(0);
   const [profile, setProfile] = useState<EngineProfile>("balanceado");
+  const [profileConfigs, setProfileConfigs] = useState<EngineProfileSettingsMap | null>(null);
+  const [profileDefaults, setProfileDefaults] = useState<EngineProfileSettingsMap | null>(null);
+  const [profileDrafts, setProfileDrafts] = useState<EngineProfileSettingsMap | null>(null);
+  const [profileWarnings, setProfileWarnings] = useState<string[]>([]);
+  const [profilesLoading, setProfilesLoading] = useState(false);
+  const [profilesError, setProfilesError] = useState("");
   const [targets, setTargets] = useState<TargetLocation[]>([]);
   const [maxJobs, setMaxJobs] = useState(5000);
   const categories = BUSINESS_NICHES;
@@ -126,6 +171,30 @@ function ChupacabraDashboard() {
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    let active = true;
+    setProfilesLoading(true);
+    void listProfileSettings()
+      .then(({ profiles: items, defaults, warnings }) => {
+        if (!active) return;
+        setProfileConfigs(items);
+        setProfileDefaults(defaults);
+        setProfileDrafts(items);
+        setProfileWarnings(warnings);
+        setProfilesError("");
+      })
+      .catch((cause) => {
+        if (active) setProfilesError(cause instanceof Error ? cause.message : String(cause));
+      })
+      .finally(() => {
+        if (active) setProfilesLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -262,12 +331,13 @@ function ChupacabraDashboard() {
     try {
       if (!targets.length) throw new Error("Selecione ao menos uma cidade na Matriz de Alvos.");
       if (!selectedCategoryIds.length) throw new Error("Selecione ao menos um nicho na Matriz de Alvos.");
+      if (!profileConfigs) throw new Error(profilesError || "Aguarde o carregamento das configurações do perfil.");
       const plannedJobs = targets.length * [...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length;
       if (plannedJobs > maxJobs) {
         throw new Error(`A matriz possui ${plannedJobs.toLocaleString("pt-BR")} jobs e o limite atual é ${maxJobs.toLocaleString("pt-BR")}.`);
       }
       const allCategories = [...categories, ...customCategories];
-      await startRun({ profile, targets, categories: allCategories.filter(([id]) => selectedCategoryIds.includes(id)), max_jobs: maxJobs });
+      await startRun({ profile, profile_settings: profileConfigs[profile], targets, categories: allCategories.filter(([id]) => selectedCategoryIds.includes(id)), max_jobs: maxJobs });
       setScanState("running");
       return true;
     } catch (error) {
@@ -322,11 +392,31 @@ function ChupacabraDashboard() {
         </header>
 
         <div className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
-          {view === "dashboard" && <DashboardView t={t} scanState={scanState} setScanState={setScanState} startScan={startScan} onPause={handlePause} onResume={handleResume} onCancel={handleCancel} profile={profile} setProfile={setProfile} progress={progress} leadCount={leadCount} queryCount={queryCount} collectedCount={collectedCount} validCount={validCount} duplicateCount={duplicateCount} stochasticTimer={stochasticTimer} logs={logs} targetCount={targets.length} categoryCount={[...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} plannedJobs={targets.length * [...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} />}
+          {view === "dashboard" && <DashboardView t={t} scanState={scanState} setScanState={setScanState} startScan={startScan} onPause={handlePause} onResume={handleResume} onCancel={handleCancel} profile={profile} setProfile={setProfile} profileSettings={profileConfigs?.[profile]} profileSettingsLoading={profilesLoading} progress={progress} leadCount={leadCount} queryCount={queryCount} collectedCount={collectedCount} validCount={validCount} duplicateCount={duplicateCount} stochasticTimer={stochasticTimer} logs={logs} targetCount={targets.length} categoryCount={[...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} plannedJobs={targets.length * [...categories, ...customCategories].filter(([id]) => selectedCategoryIds.includes(id)).length} />}
           {view === "targets" && <TargetsView targets={targets} setTargets={setTargets} categories={categories} selectedCategoryIds={selectedCategoryIds} setSelectedCategoryIds={setSelectedCategoryIds} customCategories={customCategories} setCustomCategories={setCustomCategories} maxJobs={maxJobs} setMaxJobs={setMaxJobs} startScan={async () => { const started = await startScan(); if (started) setView("dashboard"); }} goToDashboard={() => setView("dashboard")} />}
           {view === "leads" && <LeadsView />}
           {view === "outreach" && <OutreachView />}
           {view === "reports" && <ReportsView />}
+          {view === "profiles" && (profileConfigs && profileDefaults && profileDrafts
+            ? <ProfileSettingsView
+                profileSettings={profileConfigs}
+                profileDefaults={profileDefaults}
+                drafts={profileDrafts}
+                setDrafts={setProfileDrafts}
+                selectedProfile={profile}
+                setSelectedProfile={setProfile}
+                warnings={profileWarnings}
+                onSaved={(savedProfile, next, nextDefaults, nextWarnings) => {
+                  setProfileConfigs(next);
+                  setProfileDefaults(nextDefaults);
+                  setProfileDrafts((current) => current ? { ...current, [savedProfile]: next[savedProfile] } : next);
+                  setProfileWarnings(nextWarnings);
+                  setProfilesError("");
+                }}
+              />
+            : <section className="panel p-5">
+                <p className="text-sm text-muted-foreground">{profilesLoading ? "Carregando configurações dos perfis..." : profilesError || "As configurações só estão disponíveis no aplicativo desktop."}</p>
+              </section>)}
         </div>
         <AboutDialog open={aboutOpen} onOpenChange={setAboutOpen} locale={locale} setLocale={setLocale} t={t} />
       </main>
@@ -435,7 +525,7 @@ function PageIntro({ eyebrow, title, description, action }: { eyebrow: string; t
   return <div className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4"><div className="min-w-0"><p className="mb-2 font-mono text-[10px] uppercase tracking-[0.2em] text-primary">{eyebrow}</p><h2 className="font-display text-2xl font-bold tracking-wide sm:text-3xl">{title}</h2><p className="mt-2 max-w-2xl text-sm text-muted-foreground">{description}</p></div>{action && <div className="shrink-0">{action}</div>}</div>;
 }
 
-function DashboardView({ t, scanState, setScanState, startScan, onPause, onResume, onCancel, profile, setProfile, progress, leadCount, queryCount, collectedCount, validCount, duplicateCount, stochasticTimer, logs, targetCount, categoryCount, plannedJobs }: { t: (key: string) => string; scanState: ScanState; setScanState: (s: ScanState) => void; startScan: () => void; onPause: () => void; onResume: () => void; onCancel: () => void; profile: EngineProfile; setProfile: (p: EngineProfile) => void; progress: number; leadCount: number; queryCount: number; collectedCount: number; validCount: number; duplicateCount: number; stochasticTimer: number; logs: string[]; targetCount: number; categoryCount: number; plannedJobs: number }) {
+function DashboardView({ t, scanState, setScanState, startScan, onPause, onResume, onCancel, profile, setProfile, profileSettings, profileSettingsLoading, progress, leadCount, queryCount, collectedCount, validCount, duplicateCount, stochasticTimer, logs, targetCount, categoryCount, plannedJobs }: { t: (key: string) => string; scanState: ScanState; setScanState: (s: ScanState) => void; startScan: () => void; onPause: () => void; onResume: () => void; onCancel: () => void; profile: EngineProfile; setProfile: (p: EngineProfile) => void; profileSettings?: EngineProfileSettings; profileSettingsLoading: boolean; progress: number; leadCount: number; queryCount: number; collectedCount: number; validCount: number; duplicateCount: number; stochasticTimer: number; logs: string[]; targetCount: number; categoryCount: number; plannedJobs: number }) {
   const metrics = [
     { label: "Leads coletados", value: leadCount.toLocaleString("pt-BR"), delta: "na execução atual", icon: Users },
     { label: "Cidades configuradas", value: targetCount.toLocaleString("pt-BR"), delta: "na matriz atual", icon: MapPin },
@@ -448,7 +538,7 @@ function DashboardView({ t, scanState, setScanState, startScan, onPause, onResum
 
     <section className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.55fr)]">
       <div className="panel overflow-hidden">
-        <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-display text-lg font-semibold">Operação de varredura</p><p className="mt-1 text-xs text-muted-foreground">Execução real via engine · matriz atual: {targetCount} localidades × {categoryCount} nichos</p></div><div className="flex flex-wrap gap-2"><div className="flex items-center border border-border bg-surface p-1">{([["rapido","Rápido"],["balanceado","Balanceado"],["chupacabra","Chupacabra"]] as Array<[EngineProfile,string]>).map(([item,label])=><button key={item} onClick={()=>setProfile(item)} className={cn("px-2.5 py-1.5 font-mono text-[9px] uppercase transition-colors", profile===item ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground")}>{label}</button>)}</div>{scanState === "running" && <><Button variant="outline" onClick={onPause}><Pause /> Pausar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}{scanState === "paused" && <><Button variant="outline" onClick={onResume}><Play /> Retomar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}<Button size="lg" onClick={startScan} className="scan-button"><Zap />{scanState === "running" ? t("actions.chuparAgain") : t("actions.chupar")}</Button></div></div>
+        <div className="flex flex-col gap-4 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-display text-lg font-semibold">Operação de varredura</p><p className="mt-1 text-xs text-muted-foreground">Execução real via engine · matriz atual: {targetCount} localidades × {categoryCount} nichos</p><p className="mt-2 max-w-2xl text-xs leading-5 text-muted-foreground">{PROFILE_INFO[profile].description}</p>{profileSettings && <p className="mt-1 font-mono text-[9px] text-primary">Teto {profileSettings.limit.toLocaleString("pt-BR")} por job · {profileSettings.scraper_concurrency} jobs simultâneos · pausa {profileSettings.delay_min}–{profileSettings.delay_max}s</p>}</div><div className="flex flex-wrap gap-2"><div className="flex items-center border border-border bg-surface p-1">{PROFILE_IDS.map((item)=><button key={item} onClick={()=>setProfile(item)} className={cn("px-2.5 py-1.5 font-mono text-[9px] uppercase transition-colors", profile===item ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground")}>{PROFILE_INFO[item].label}</button>)}</div>{scanState === "running" && <><Button variant="outline" onClick={onPause}><Pause /> Pausar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}{scanState === "paused" && <><Button variant="outline" onClick={onResume}><Play /> Retomar</Button><Button variant="outline" onClick={onCancel}><X /> Cancelar</Button></>}{profileSettingsLoading && <span className="self-center text-[10px] text-muted-foreground">Carregando perfil...</span>}<Button size="lg" onClick={startScan} disabled={!profileSettings || profileSettingsLoading} className="scan-button"><Zap />{scanState === "running" ? t("actions.chuparAgain") : t("actions.chupar")}</Button></div></div>
         <div className="grid gap-6 p-5 md:grid-cols-[minmax(0,1fr)_220px]">
           <div><div className="mb-2 flex justify-between text-xs"><span className="text-muted-foreground">Progresso do ciclo</span><span className="font-mono text-primary">{Math.round(progress)}%</span></div><div className="h-2 overflow-hidden bg-muted"><div className="h-full bg-primary transition-all duration-700 shadow-glow" style={{ width: `${progress}%` }} /></div><div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">{[
   ["Consultas", queryCount.toLocaleString("pt-BR")],
@@ -902,6 +992,292 @@ function scoreBandOf(lead: LeadRecord) {
   if (value < 75) return "Média";
   return "Grande";
 }
+
+type NumericProfileSetting = Exclude<keyof EngineProfileSettings, "scrape_websites">;
+
+function profileSettingErrors(settings: EngineProfileSettings): Partial<Record<keyof EngineProfileSettings, string>> {
+  const errors: Partial<Record<keyof EngineProfileSettings, string>> = {};
+  for (const key of Object.keys(PROFILE_BOUNDS) as Array<keyof EngineProfileSettings>) {
+    if (key === "scrape_websites") continue;
+    const value = settings[key];
+    const [minimum, maximum] = PROFILE_BOUNDS[key];
+    if (!Number.isInteger(value) || value < minimum || value > maximum) {
+      errors[key] = `Use um valor entre ${minimum} e ${maximum}${key.includes("delay") || key === "web_timeout" ? " segundos" : ""}.`;
+    }
+  }
+  if (settings.delay_max < settings.delay_min) {
+    errors.delay_max = "O máximo deve ser maior ou igual ao mínimo.";
+  }
+  return errors;
+}
+
+function ProfileSettingsView({
+  profileSettings,
+  profileDefaults,
+  drafts,
+  setDrafts,
+  selectedProfile,
+  setSelectedProfile,
+  warnings,
+  onSaved,
+}: {
+  profileSettings: EngineProfileSettingsMap;
+  profileDefaults: EngineProfileSettingsMap;
+  drafts: EngineProfileSettingsMap;
+  setDrafts: React.Dispatch<React.SetStateAction<EngineProfileSettingsMap | null>>;
+  selectedProfile: EngineProfile;
+  setSelectedProfile: (profile: EngineProfile) => void;
+  warnings: string[];
+  onSaved: (
+    profile: EngineProfile,
+    profiles: EngineProfileSettingsMap,
+    defaults: EngineProfileSettingsMap,
+    warnings: string[],
+  ) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
+  const draft = drafts[selectedProfile];
+  const errors = profileSettingErrors(draft);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(profileSettings[selectedProfile]);
+  const invalid = Object.keys(errors).length > 0;
+
+  const updateNumber = (field: NumericProfileSetting, value: number) => {
+    setDrafts((current) => current ? {
+      ...current,
+      [selectedProfile]: { ...current[selectedProfile], [field]: value },
+    } : current);
+    setStatus("");
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError("");
+    setStatus("");
+    try {
+      const result = await saveProfileSettings(selectedProfile, draft);
+      onSaved(selectedProfile, result.profiles, result.defaults, result.warnings);
+      setStatus(`${PROFILE_INFO[selectedProfile].label}: perfil salvo.`);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const discardChanges = () => {
+    setDrafts((current) => current ? { ...current, [selectedProfile]: profileSettings[selectedProfile] } : current);
+    setError("");
+    setStatus("Alterações descartadas.");
+  };
+
+  const restoreDefaults = () => {
+    if (dirty && !window.confirm("Descartar as alterações não salvas deste perfil e carregar os valores padrão?")) return;
+    setDrafts((current) => current ? { ...current, [selectedProfile]: profileDefaults[selectedProfile] } : current);
+    setError("");
+    setStatus("Padrões carregados no rascunho. Salve o perfil para aplicá-los.");
+  };
+
+  return (
+    <>
+      <PageIntro
+        eyebrow="Configuração real do motor"
+        title="Perfis de execução"
+        description="Personalize cada perfil separadamente. Os valores salvos são validados pelo engine e usados como snapshot em cada nova execução."
+      />
+      {error && <section className="panel mb-4 border-destructive/30 p-4 text-xs text-destructive">{error}</section>}
+      {warnings.map((warning) => <section key={warning} className="panel mb-2 border-warning/30 p-4 text-xs text-warning">{warning}</section>)}
+      {status && <section className="panel mb-4 border-primary/30 p-4 text-xs text-primary">{status}</section>}
+
+      <section className="panel p-5">
+        <p className="field-label">Perfil de execução</p>
+        <div className="mt-3 grid gap-3 lg:grid-cols-3">
+          {PROFILE_IDS.map((profileId) => (
+            <button
+              key={profileId}
+              type="button"
+              onClick={() => { setSelectedProfile(profileId); setError(""); setStatus(""); }}
+              className={cn(
+                "border p-4 text-left transition-colors",
+                selectedProfile === profileId ? "border-primary bg-primary/10" : "border-border bg-surface hover:border-primary/40",
+              )}
+            >
+              <span className="font-display text-sm font-semibold">{PROFILE_INFO[profileId].label}</span>
+              <span className="mt-2 block text-xs leading-5 text-muted-foreground">{PROFILE_INFO[profileId].description}</span>
+              {JSON.stringify(drafts[profileId]) !== JSON.stringify(profileSettings[profileId]) && (
+                <span className="mt-3 block font-mono text-[9px] uppercase text-warning">Alterações não salvas</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel mt-4 space-y-5 p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
+          <div>
+            <p className="field-label">Configurações básicas · {PROFILE_INFO[selectedProfile].label}</p>
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">{PROFILE_INFO[selectedProfile].description}</p>
+          </div>
+          <span className={cn("font-mono text-[10px] uppercase", dirty ? "text-warning" : "text-primary")}>
+            {dirty ? "Alterações não salvas" : "Perfil salvo"}
+          </span>
+        </div>
+
+        <div className="grid gap-5 md:grid-cols-2">
+          <ProfileNumberField
+            label="Tamanho do banquete"
+            description="Quantos leads o bicho pode engolir nessa run. Mais alto = mais volume (e mais tempo)."
+            tooltip="Não é garantia de N leads; é o teto. O Maps e o dedupe decidem o que sobra no prato."
+            value={draft.limit}
+            minimum={PROFILE_BOUNDS.limit[0]}
+            maximum={PROFILE_BOUNDS.limit[1]}
+            error={errors.limit}
+            onChange={(value) => updateNumber("limit", value)}
+          />
+          <ProfileNumberField
+            label="Bocadas ao mesmo tempo"
+            description="Quantas buscas em paralelo. Sobe a velocidade; passa do ponto e o PC (ou o Maps) reclama."
+            tooltip="Paralelo demais vira engasgo. Se a memória chorar, baixa isso."
+            value={draft.scraper_concurrency}
+            minimum={PROFILE_BOUNDS.scraper_concurrency[0]}
+            maximum={PROFILE_BOUNDS.scraper_concurrency[1]}
+            error={errors.scraper_concurrency}
+            onChange={(value) => updateNumber("scraper_concurrency", value)}
+          />
+        </div>
+
+        <label className="flex items-start justify-between gap-4 border border-border bg-surface p-4">
+          <span>
+            <span className="field-label" title="Aqui que nasce telefone bonito e CNPJ. Também é o que deixa a run mais longa.">Abrir o site da vítima</span>
+            <span className="mt-1 block text-xs leading-5 text-muted-foreground">Liga a visita aos sites pra achar telefone, CNPJ e afins. Desligado = mais rápido, lead mais ‘cru’.</span>
+          </span>
+          <Switch checked={draft.scrape_websites} onCheckedChange={(checked) => {
+            setDrafts((current) => current ? { ...current, [selectedProfile]: { ...current[selectedProfile], scrape_websites: checked } } : current);
+            setStatus("");
+          }} aria-label="Abrir o site da vítima" />
+        </label>
+
+        <div className={cn("grid gap-5 md:grid-cols-2", !draft.scrape_websites && "opacity-50")}>
+          <ProfileNumberField
+            label="Aberturas simultâneas"
+            description="Quantos sites fuçar de uma vez. Mais paralelo = mais rápido e mais chance de site lento travar a fila."
+            value={draft.web_concurrency}
+            minimum={PROFILE_BOUNDS.web_concurrency[0]}
+            maximum={PROFILE_BOUNDS.web_concurrency[1]}
+            error={errors.web_concurrency}
+            disabled={!draft.scrape_websites}
+            onChange={(value) => updateNumber("web_concurrency", value)}
+          />
+        </div>
+
+        <details className="border border-border bg-surface">
+          <summary className="cursor-pointer px-4 py-3 text-xs font-semibold">
+            Configurações avançadas
+            <span className="ml-2 font-mono text-[9px] uppercase text-muted-foreground">Avançado</span>
+          </summary>
+          <div className="grid gap-5 border-t border-border p-4 md:grid-cols-2">
+            <ProfileNumberField
+              label="Tamanho do bocado"
+              description="Processa em grupos. Lote maior = menos idas e vindas; lote menor = mais controle fino."
+              value={draft.web_batch_size}
+              minimum={PROFILE_BOUNDS.web_batch_size[0]}
+              maximum={PROFILE_BOUNDS.web_batch_size[1]}
+              error={errors.web_batch_size}
+              disabled={!draft.scrape_websites}
+              onChange={(value) => updateNumber("web_batch_size", value)}
+            />
+            <ProfileNumberField
+              label="Paciência com site lerdo"
+              description="Quanto tempo esperar antes de largar um site que não responde."
+              value={draft.web_timeout}
+              minimum={PROFILE_BOUNDS.web_timeout[0]}
+              maximum={PROFILE_BOUNDS.web_timeout[1]}
+              unit="segundos"
+              error={errors.web_timeout}
+              disabled={!draft.scrape_websites}
+              onChange={(value) => updateNumber("web_timeout", value)}
+            />
+            <ProfileNumberField
+              label="Tempo entre mordidas · mínimo"
+              description="Pausa aleatória entre o início de cada job de busca. Intervalo maior = mais ‘educado’ com o Maps; menor = mais fome, mais risco."
+              tooltip="O Chupacabra respira entre as vítimas. Intervalo apertado = run rápida e cara feia do provedor."
+              value={draft.delay_min}
+              minimum={PROFILE_BOUNDS.delay_min[0]}
+              maximum={PROFILE_BOUNDS.delay_min[1]}
+              unit="segundos"
+              error={errors.delay_min}
+              onChange={(value) => updateNumber("delay_min", value)}
+            />
+            <ProfileNumberField
+              label="Tempo entre mordidas · máximo"
+              description="O tempo máximo da pausa aleatória entre o início de cada job."
+              value={draft.delay_max}
+              minimum={PROFILE_BOUNDS.delay_max[0]}
+              maximum={PROFILE_BOUNDS.delay_max[1]}
+              unit="segundos"
+              error={errors.delay_max}
+              onChange={(value) => updateNumber("delay_max", value)}
+            />
+          </div>
+        </details>
+
+        <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
+          <Button variant="outline" onClick={restoreDefaults}>Restaurar padrão</Button>
+          <Button variant="outline" onClick={discardChanges} disabled={!dirty || saving}>Descartar alterações</Button>
+          <Button onClick={() => void handleSave()} disabled={!dirty || invalid || saving}>
+            {saving ? "Salvando..." : "Salvar perfil"}
+          </Button>
+        </div>
+      </section>
+    </>
+  );
+}
+
+function ProfileNumberField({
+  label,
+  description,
+  tooltip,
+  value,
+  minimum,
+  maximum,
+  unit,
+  error,
+  disabled = false,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  tooltip?: string;
+  value: number;
+  minimum: number;
+  maximum: number;
+  unit?: string;
+  error?: string;
+  disabled?: boolean;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="field-label" title={tooltip}>{label}{unit ? ` · ${unit}` : ""}</span>
+      <span className="mt-1 block text-xs leading-5 text-muted-foreground">{description}</span>
+      <input
+        className={cn("field mt-2", error && "border-destructive")}
+        type="number"
+        min={minimum}
+        max={maximum}
+        step={1}
+        value={value}
+        disabled={disabled}
+        aria-invalid={Boolean(error)}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+      {error && <span className="mt-1 block text-xs text-destructive">{error}</span>}
+      <span className="mt-1 block font-mono text-[9px] text-muted-foreground">Faixa técnica: {minimum}–{maximum}{unit ? ` ${unit}` : ""}</span>
+    </label>
+  );
+}
+
 function StatusBadge({status}:{status:string}) { return <span className={cn("status-badge", status==="Qualificado"&&"status-success", status==="Em análise"&&"status-info", status==="Descartado"&&"status-muted")}>{status}</span>; }
 
 function OutreachView() {

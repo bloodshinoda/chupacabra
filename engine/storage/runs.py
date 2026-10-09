@@ -1,6 +1,7 @@
 """Filesystem-backed run storage used by the engine and later by Tauri."""
 from pathlib import Path
 import json
+import threading
 from typing import Any
 
 from engine.models import ProspectingRun, SearchJob
@@ -14,6 +15,7 @@ class RunStore:
     ) -> None:
         self.root = Path(root)
         self.report_root = Path(report_root) if report_root is not None else None
+        self._run_write_lock = threading.Lock()
 
     def run_dir(self, run_id: str) -> Path:
         return self.root / run_id
@@ -49,7 +51,8 @@ class RunStore:
 
     def save_run(self, run: ProspectingRun) -> Path:
         path = self.run_dir(run.id) / "run.json"
-        self._write_json(path, run.to_dict())
+        with self._run_write_lock:
+            self._write_json(path, run.to_dict())
         return path
 
     def save_job(self, run_id: str, job: SearchJob) -> Path:

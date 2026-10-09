@@ -126,7 +126,7 @@ async def _enrich_one(
             result = _analyze(html)
             if result.get('web_cnpj'):
                 from .cnpj_lookup import lookup_cnpj
-                result.update(await lookup_cnpj(session, result['web_cnpj']))
+                result.update(await lookup_cnpj(session, result['web_cnpj'], timeout=timeout))
             return result
         return dict(_EMPTY_RESULT)
 
@@ -155,6 +155,13 @@ def enrich_websites(
     Processes in batches to keep memory bounded for large inputs.
     Never raises — failed URLs return empty signal dicts.
     """
+    if max_concurrent < 1:
+        raise ValueError("max_concurrent deve ser pelo menos 1.")
+    if batch_size < 1:
+        raise ValueError("batch_size deve ser pelo menos 1.")
+    if timeout < 1:
+        raise ValueError("timeout deve ser pelo menos 1 segundo.")
+
     if not _BS4_AVAILABLE:
         logger.warning(
             "beautifulsoup4 not installed — falling back to regex HTML stripping. "

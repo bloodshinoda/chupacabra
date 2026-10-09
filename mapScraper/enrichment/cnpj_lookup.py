@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 _CNPJ_RE = re.compile(r"^\d{14}$")
 _ENDPOINT = "https://brasilapi.com.br/api/cnpj/v1/{cnpj}"
-_TIMEOUT = 10
+_DEFAULT_TIMEOUT = 10
 
 _EMPTY_RESULT: dict[str, Any] = {}
 
@@ -24,6 +24,7 @@ def _normalize_cnpj(cnpj: str) -> str:
 async def lookup_cnpj(
     session: aiohttp.ClientSession,
     cnpj: str,
+    timeout: int = _DEFAULT_TIMEOUT,
 ) -> dict[str, Any]:
     """Look up a CNPJ in BrasilAPI.
 
@@ -38,7 +39,7 @@ async def lookup_cnpj(
     try:
         async with session.get(
             _ENDPOINT.format(cnpj=normalized),
-            timeout=aiohttp.ClientTimeout(total=_TIMEOUT),
+            timeout=aiohttp.ClientTimeout(total=timeout),
         ) as response:
             if response.status != 200:
                 return dict(_EMPTY_RESULT)

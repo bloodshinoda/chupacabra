@@ -12,6 +12,11 @@ from pathlib import Path
 from engine.geography.ibge import IbgeBrazilCatalog
 from engine.geography.world import WorldCityCatalog
 from engine.geography.models import TargetLocation
+from engine.orchestration.profiles import (
+    ProfileSettingsStore,
+    profile_defaults,
+    resolve_profile,
+)
 from engine.orchestration.runner import ProspectingRunner
 from engine.orchestration.targets import CATEGORIES, build_jobs
 from engine.storage import RunStore
@@ -29,6 +34,7 @@ class EngineDaemon:
         self._run_thread: threading.Thread | None = None
         self._catalog = IbgeBrazilCatalog()
         self._world_catalog = WorldCityCatalog()
+        self._profile_settings = ProfileSettingsStore(Path("profile-settings.json"))
         self._stdout_lock = threading.Lock()
         self._stdout_available = True
 
@@ -105,6 +111,11 @@ class EngineDaemon:
 
             profile = str(payload.get("profile", "balanceado"))
             self._configure_store(payload)
+            resolve_profile(profile)
+            saved_profiles, _warnings = self._profile_settings.load()
+            saved_settings = saved_profiles[profile.strip().lower()].settings()
+            supplied_settings = payload.get("profile_settings", saved_settings)
+            selected_profile = resolve_profile(profile, supplied_settings)
 
             raw_targets = payload.get("targets")
             if raw_targets:
@@ -149,7 +160,7 @@ class EngineDaemon:
                 target=self.runner.run,
                 kwargs={
                     "jobs": jobs,
-                    "profile": profile,
+                    "profile": selected_profile,
                     "lang": lang,
                     "country": country,
                 },
@@ -165,8 +176,16 @@ class EngineDaemon:
             Path(runs_dir),
             report_root=Path(str(reports_dir)) if reports_dir else self.runner.store.report_root,
         )
+        settings_file = payload.get("profile_settings_file")
+        if settings_file:
+            self._profile_settings = ProfileSettingsStore(Path(str(settings_file)))
+        elif self._profile_settings.path == Path("profile-settings.json"):
+            self._profile_settings = ProfileSettingsStore(
+                self.runner.store.root.parent / "profile-settings.json"
+            )
 
     def _list_runs(self, payload: dict) -> None:
+        self._configure_store(payload)
         root = Path(self.runner.store.root)
         runs = []
         if root.exists():
@@ -193,6 +212,7 @@ class EngineDaemon:
         })
 
     def _load_run_leads(self, payload: dict) -> None:
+        self._configure_store(payload)
         run_id = str(payload.get("run_id", "")).strip()
         if not run_id:
             raise ValueError("run_id is required")
@@ -232,6 +252,32 @@ class EngineDaemon:
             "correlation_id": payload.get("correlation_id"),
             "run_id": run_id,
             "leads": leads,
+        })
+
+    def _list_profiles(self, payload: dict) -> None:
+        self._configure_store(payload)
+        configured, warnings = self._profile_settings.load()
+        self._emit_payload({
+            "type": "profile_settings",
+            "correlation_id": payload.get("correlation_id"),
+            "profiles": {name: profile.settings() for name, profile in configured.items()},
+            "defaults": profile_defaults(),
+            "warnings": warnings,
+        })
+
+    def _save_profile(self, payload: dict) -> None:
+        self._configure_store(payload)
+        name = str(payload.get("profile", ""))
+        values = payload.get("settings")
+        self._profile_settings.save(name, values)
+        configured, warnings = self._profile_settings.load()
+        self._emit_payload({
+            "type": "profile_saved",
+            "correlation_id": payload.get("correlation_id"),
+            "profiles": {profile_name: profile.settings() for profile_name, profile in configured.items()},
+            "defaults": profile_defaults(),
+            "warnings": warnings,
+            "profile": name,
         })
 
     def _export_run_report(self, payload: dict) -> None:
@@ -383,6 +429,10 @@ class EngineDaemon:
             self._list_runs(payload)
         elif command == "load_run_leads":
             self._load_run_leads(payload)
+        elif command == "list_profiles":
+            self._list_profiles(payload)
+        elif command == "save_profile":
+            self._save_profile(payload)
         elif command == "export_run_report":
             self._export_run_report(payload)
         elif command == "catalog_states":

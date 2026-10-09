@@ -3,6 +3,19 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
 export type EngineProfile = "rapido" | "balanceado" | "chupacabra";
 
+export type EngineProfileSettings = {
+  limit: number;
+  scraper_concurrency: number;
+  scrape_websites: boolean;
+  web_concurrency: number;
+  web_batch_size: number;
+  web_timeout: number;
+  delay_min: number;
+  delay_max: number;
+};
+
+export type EngineProfileSettingsMap = Record<EngineProfile, EngineProfileSettings>;
+
 export type TargetLocation = {
   id: string;
   country: string;
@@ -76,6 +89,9 @@ export type EngineEvent = {
   limit?: number;
   results?: number;
   paths?: RunReportPaths;
+  profiles?: EngineProfileSettingsMap;
+  defaults?: EngineProfileSettingsMap;
+  warnings?: string[];
   correlation_id?: string;
 };
 
@@ -108,16 +124,57 @@ export async function startRun(options: {
   max_jobs?: number;
   lang?: string;
   country?: string;
+  profile_settings?: EngineProfileSettings;
 }): Promise<void> {
   await sendEngineCommand("start_run", options);
 }
 
-export async function loadBrazilStates(): Promise<Array<{ id: string; code: string; name: string }>> {
+export async function listProfileSettings(): Promise<{
+  profiles: EngineProfileSettingsMap;
+  defaults: EngineProfileSettingsMap;
+  warnings: string[];
+}> {
+  const response = await requestEngineData("list_profiles");
+  if (!response.profiles || !response.defaults) {
+    throw new Error("O engine não retornou as configurações dos perfis.");
+  }
+  return {
+    profiles: response.profiles,
+    defaults: response.defaults,
+    warnings: response.warnings ?? [],
+  };
+}
+
+export async function saveProfileSettings(
+  profile: EngineProfile,
+  settings: EngineProfileSettings,
+): Promise<{
+  profiles: EngineProfileSettingsMap;
+  defaults: EngineProfileSettingsMap;
+  warnings: string[];
+}> {
+  const response = await requestEngineData("save_profile", { profile, settings });
+  if (!response.profiles || !response.defaults) {
+    throw new Error("O engine não confirmou as configurações salvas.");
+  }
+  return {
+    profiles: response.profiles,
+    defaults: response.defaults,
+    warnings: response.warnings ?? [],
+  };
+}
+
+export async function loadBrazilStates(): Promise<
+  Array<{ id: string; code: string; name: string }>
+> {
   const response = await requestEngineCatalog("catalog_states");
   return response.states ?? [];
 }
 
-export async function loadWorldCities(query: string, countryCode?: string): Promise<TargetLocation[]> {
+export async function loadWorldCities(
+  query: string,
+  countryCode?: string,
+): Promise<TargetLocation[]> {
   const response = await requestEngineCatalog("catalog_world_cities", {
     query,
     country_code: countryCode,
@@ -235,7 +292,9 @@ async function requestEngineData(
         } else if (
           event.payload.type === "runs_list" ||
           event.payload.type === "run_leads" ||
-          event.payload.type === "run_report_exported"
+          event.payload.type === "run_report_exported" ||
+          event.payload.type === "profile_settings" ||
+          event.payload.type === "profile_saved"
         ) {
           finish(() => resolve(event.payload));
         }

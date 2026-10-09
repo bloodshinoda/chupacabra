@@ -31,7 +31,7 @@ class _FakeSession:
         self.calls = []
 
     def get(self, url, **kwargs):
-        self.calls.append(url)
+        self.calls.append((url, kwargs))
         if "brasilapi.com.br" in url:
             return _FakeResponse(self.status, payload=self.payload)
         return _FakeResponse(200, text=self.html)
@@ -89,12 +89,13 @@ class CnpjEnrichmentTests(unittest.IsolatedAsyncioTestCase):
             session,
             "https://example.com",
             __import__("asyncio").Semaphore(1),
-            10,
+            17,
         )
 
         self.assertEqual(result["web_cnpj"], "08885404000111")
         self.assertEqual(result["cnpj_situacao_cadastral"], "ATIVA")
         self.assertEqual(len(session.calls), 2)
+        self.assertTrue(all(call[1]["timeout"].total == 17 for call in session.calls))
 
         session_without_cnpj = _FakeSession(html="Sem CNPJ aqui")
         result_without_cnpj = await _enrich_one(
@@ -105,6 +106,7 @@ class CnpjEnrichmentTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(result_without_cnpj["web_cnpj"], "")
         self.assertEqual(len(session_without_cnpj.calls), 1)
+        self.assertEqual(session_without_cnpj.calls[0][1]["timeout"].total, 10)
 
 
 if __name__ == "__main__":

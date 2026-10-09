@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from contextvars import ContextVar
 import logging
 from pathlib import Path
 import random
@@ -17,18 +19,19 @@ from uuid import uuid4
 from engine.crawler import CrawlerAdapter
 from engine.models import JobStatus, ProspectingRun, RunStatus, SearchJob
 from engine.orchestration.events import EventBus, EventHandler
-from engine.orchestration.profiles import RunProfile, get_profile
+from engine.orchestration.profiles import RunProfile, resolve_profile
 from engine.storage import RunStore
 
 logger = logging.getLogger(__name__)
+_JOB_LOG_PATH: ContextVar[str | None] = ContextVar("job_log_path", default=None)
 
 
 class ProspectingRunner:
-    """Run jobs sequentially while exposing pause/resume/cancel controls.
+    """Run bounded concurrent jobs while exposing pause/resume/cancel controls.
 
-    The first P0 implementation intentionally pauses only between jobs. The
-    current crawler has no cancellation hook at page level, so cancelling an
-    in-flight Google Maps request is deferred until that request finishes.
+    Pausing prevents additional jobs from starting; cancellation waits for
+    already-running Google Maps requests because the crawler has no page-level
+    cancellation hook.
     """
 
     def __init__(
@@ -73,19 +76,28 @@ class ProspectingRunner:
         jobs: Iterable[tuple[str, str, str, str]],
         *,
         profile: str | RunProfile = "balanceado",
+        profile_settings: dict | None = None,
         lang: str = "pt",
         country: str = "br",
     ) -> ProspectingRun:
         if self._active_run is not None:
             raise RuntimeError("A prospecting run is already active")
 
-        selected = get_profile(profile) if isinstance(profile, str) else profile
+        profile_name = profile if isinstance(profile, str) else profile.name
+        selected = resolve_profile(profile_name, profile_settings if profile_settings is not None else (
+            profile.settings() if isinstance(profile, RunProfile) else None
+        ))
         job_specs = list(jobs)
         base_id = datetime.now().astimezone().strftime("%Y-%m-%d %H.%M")
         run_id = base_id
         if self.store.run_dir(run_id).exists():
             run_id = f"{base_id}.{datetime.now().astimezone().strftime('%S')}-{uuid4().hex[:4]}"
-        run = ProspectingRun(id=run_id, profile=selected.name, lang=lang)
+        run = ProspectingRun(
+            id=run_id,
+            profile=selected.name,
+            lang=lang,
+            profile_settings=selected.settings(),
+        )
         run.jobs = [
             SearchJob(
                 id=f"{index:03d}",
@@ -106,24 +118,43 @@ class ProspectingRunner:
         self.events.emit("run_started", run=run.to_dict())
 
         try:
-            for job, spec in zip(run.jobs, job_specs, strict=True):
-                if self._cancel.is_set():
-                    job.cancel()
-                    self.store.save_job(run.id, job)
-                    continue
+            next_job = 0
+            futures: dict[Future[None], SearchJob] = {}
+            with ThreadPoolExecutor(
+                max_workers=selected.scraper_concurrency,
+                thread_name_prefix="chupacabra-job",
+            ) as executor:
+                while next_job < len(run.jobs) or futures:
+                    if self._cancel.is_set():
+                        break
 
-                self._resume_gate.wait()
-                if self._cancel.is_set():
-                    job.cancel()
-                    self.store.save_job(run.id, job)
-                    continue
+                    if next_job < len(run.jobs) and len(futures) < selected.scraper_concurrency:
+                        job = run.jobs[next_job]
+                        self._resume_gate.wait()
+                        if self._cancel.is_set():
+                            break
+                        if next_job:
+                            self._delay_between_jobs(selected, next_job_id=job.id)
+                            if self._cancel.is_set():
+                                break
+                        future = executor.submit(self._run_job, run, job, selected, lang, country)
+                        futures[future] = job
+                        next_job += 1
+                        continue
 
-                self._run_job(run, job, selected, lang, country)
-                run.recalculate()
-                self.store.save_run(run)
-
-                if job.status is JobStatus.COMPLETED and job.id != run.jobs[-1].id:
-                    self._delay_between_jobs(selected, next_job_id=run.jobs[run.jobs.index(job) + 1].id)
+                    if futures:
+                        completed, _ = wait(futures, timeout=0.1, return_when=FIRST_COMPLETED)
+                        for future in completed:
+                            job = futures.pop(future)
+                            try:
+                                future.result()
+                            except Exception as exc:
+                                logger.exception("Unexpected job failure")
+                                job.fail(str(exc))
+                                self.store.save_job(run.id, job)
+                                self.events.emit("job_failed", run=run.to_dict(), job=job.to_dict(), error=str(exc))
+                            run.recalculate()
+                            self.store.save_run(run)
 
             if self._cancel.is_set():
                 run.cancel()
@@ -172,11 +203,18 @@ class ProspectingRunner:
         run.recalculate()
         self.events.emit("job_started", run=run.to_dict(), job=job.to_dict())
 
+        if self._cancel.is_set():
+            job.cancel()
+            self.store.save_job(run.id, job)
+            return
+
         handler = logging.FileHandler(job.log_file, encoding="utf-8")
+        handler.addFilter(lambda _record: _JOB_LOG_PATH.get() == job.log_file)
         formatter = logging.Formatter("%(asctime)s %(levelname)-8s %(name)s — %(message)s")
         handler.setFormatter(formatter)
         root_logger = logging.getLogger()
         root_logger.addHandler(handler)
+        log_context = _JOB_LOG_PATH.set(job.log_file)
 
         def write_job_log(message: str) -> None:
             with Path(job.log_file).open("a", encoding="utf-8") as handle:
@@ -260,6 +298,7 @@ class ProspectingRunner:
             run.recalculate()
             self.events.emit("job_failed", run=run.to_dict(), job=job.to_dict(), error=str(exc))
         finally:
+            _JOB_LOG_PATH.reset(log_context)
             root_logger.removeHandler(handler)
             handler.close()
             self.store.save_job(run.id, job)

@@ -32,6 +32,7 @@ class ProspectingRun:
     finished_at: Optional[str] = None
     report_file: Optional[str] = None
     lang: str = "pt"
+    profile_settings: dict = field(default_factory=dict)
 
     def start(self) -> None:
         self.status = RunStatus.RUNNING

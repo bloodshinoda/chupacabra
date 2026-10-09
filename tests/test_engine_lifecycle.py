@@ -4,6 +4,8 @@ import csv
 from pathlib import Path
 import sys
 import tempfile
+import threading
+import time
 import types
 import unittest
 
@@ -17,6 +19,7 @@ class FakeCrawler:
         self.mapscraper_root = root
         self.fail = fail
         self.cancel_runner = cancel_runner
+        self.calls = []
 
     def scrape(
         self,
@@ -30,6 +33,7 @@ class FakeCrawler:
         progress=None,
         **_kwargs,
     ):
+        self.calls.append({"limit": limit, "max_concurrent": max_concurrent})
         if self.fail:
             raise RuntimeError("falha simulada do crawler")
         if self.cancel_runner is not None:
@@ -58,14 +62,17 @@ class EngineLifecycleTests(unittest.TestCase):
     def _install_fake_pipeline(self) -> None:
         package = types.ModuleType("pipeline")
         module = types.ModuleType("pipeline.orchestrator")
+        pipeline_calls = []
 
         def run_pipeline(*, mode, input_path, **_kwargs):
             source = Path(input_path)
+            pipeline_calls.append(_kwargs)
             target = source.with_name(source.stem + "_enriched.csv")
             target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
             return target
 
         module.run_pipeline = run_pipeline
+        module.calls = pipeline_calls
         package.orchestrator = module
         sys.modules["pipeline"] = package
         sys.modules["pipeline.orchestrator"] = module
@@ -163,6 +170,62 @@ class EngineLifecycleTests(unittest.TestCase):
             )
             self.assertIn("run_delay", events)
             self.assertIn("run_delay_tick", events)
+
+    def test_profile_settings_chegam_ao_crawler_e_jobs_rodem_com_concorrencia_limitada(self) -> None:
+        from engine.orchestration.profiles import get_profile
+
+        class ParallelCrawler(FakeCrawler):
+            def __init__(self, root: Path) -> None:
+                super().__init__(root)
+                self.active = 0
+                self.max_active = 0
+                self.lock = threading.Lock()
+
+            def scrape(self, *args, **kwargs):
+                with self.lock:
+                    self.active += 1
+                    self.max_active = max(self.max_active, self.active)
+                try:
+                    time.sleep(0.05)
+                    return super().scrape(*args, **kwargs)
+                finally:
+                    with self.lock:
+                        self.active -= 1
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._install_fake_pipeline()
+            crawler = ParallelCrawler(Path(tmp))
+            runner = ProspectingRunner(store=RunStore(tmp), crawler=crawler)
+            settings = get_profile("balanceado").settings()
+            settings.update({
+                "limit": 37,
+                "scraper_concurrency": 2,
+                "scrape_websites": False,
+                "web_concurrency": 5,
+                "web_batch_size": 12,
+                "web_timeout": 4,
+                "delay_min": 0,
+                "delay_max": 0,
+            })
+
+            run = runner.run(
+                [("um", "Chapeco", "Agencia", "consulta 1"),
+                 ("dois", "Chapeco", "Grafica", "consulta 2"),
+                 ("tres", "Chapeco", "Clinica", "consulta 3")],
+                profile="balanceado",
+                profile_settings=settings,
+            )
+
+            self.assertEqual(run.profile_settings, settings)
+            self.assertEqual([call["limit"] for call in crawler.calls], [37, 37, 37])
+            self.assertEqual([call["max_concurrent"] for call in crawler.calls], [2, 2, 2])
+            self.assertEqual(crawler.max_active, 2)
+            pipeline_calls = sys.modules["pipeline.orchestrator"].calls
+            self.assertEqual(len(pipeline_calls), 3)
+            self.assertTrue(all(call["scrape_websites"] is False for call in pipeline_calls))
+            self.assertTrue(all(call["web_concurrent"] == 5 for call in pipeline_calls))
+            self.assertTrue(all(call["web_batch_size"] == 12 for call in pipeline_calls))
+            self.assertTrue(all(call["web_timeout"] == 4 for call in pipeline_calls))
 
     def test_nicho_personalizado_usa_nome_no_job_e_no_relatorio(self) -> None:
         from engine.geography.planner import build_matrix_jobs

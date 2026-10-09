@@ -127,9 +127,7 @@ fn ensure_engine(app: &tauri::AppHandle, state: &EngineState) -> Result<(), Stri
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from("."));
         command = Command::new(python);
-        command
-            .current_dir(root)
-            .args(["-m", "engine.daemon"]);
+        command.current_dir(root).args(["-m", "engine.daemon"]);
     }
 
     command.env("PYTHONUTF8", "1");
@@ -153,18 +151,9 @@ fn ensure_engine(app: &tauri::AppHandle, state: &EngineState) -> Result<(), Stri
         thread::sleep(std::time::Duration::from_millis(25));
     }
 
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or("failed to open engine stdout")?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or("failed to open engine stderr")?;
-    let stdin = child
-        .stdin
-        .take()
-        .ok_or("failed to open engine stdin")?;
+    let stdout = child.stdout.take().ok_or("failed to open engine stdout")?;
+    let stderr = child.stderr.take().ok_or("failed to open engine stderr")?;
+    let stdin = child.stdin.take().ok_or("failed to open engine stdin")?;
 
     let app_handle = app.clone();
     thread::spawn(move || {
@@ -242,19 +231,31 @@ pub fn engine_command(
         payload.extend(fields);
     }
 
-    if command.command == "start_run" || command.command == "export_run_report" {
+    if matches!(
+        command.command.as_str(),
+        "start_run"
+            | "export_run_report"
+            | "list_runs"
+            | "load_run_leads"
+            | "list_profiles"
+            | "save_profile"
+    ) {
         payload.insert(
             "runs_dir".into(),
-            serde_json::Value::String(
-                data_root(&app)?
-                    .join("runs")
-                    .to_string_lossy()
-                    .into_owned(),
-            ),
+            serde_json::Value::String(data_root(&app)?.join("runs").to_string_lossy().into_owned()),
         );
         payload.insert(
             "reports_dir".into(),
             serde_json::Value::String(reports_root(&app)?.to_string_lossy().into_owned()),
+        );
+        payload.insert(
+            "profile_settings_file".into(),
+            serde_json::Value::String(
+                data_root(&app)?
+                    .join("profile-settings.json")
+                    .to_string_lossy()
+                    .into_owned(),
+            ),
         );
     }
 

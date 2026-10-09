@@ -90,13 +90,15 @@ NSIS (Windows) / DEB (Linux CI)
 
 ## Perfis de fome
 
-| Perfil | Limite padrão | Sites | Concorrência web | Intervalo |
-|---|---:|---|---:|---:|
-| `rapido` | 250 | não | 4 | 3–7 s |
-| `balanceado` | 500 | sim | 8 | 8–16 s |
-| `chupacabra` | 1000 | sim | 10 | 15–35 s |
+| Perfil | Limite por job | Jobs crawler em paralelo | Sites | Concorrência web | Lote web | Timeout | Intervalo |
+|---|---:|---:|---|---:|---:|---:|---:|
+| `rapido` | 250 | 5 | não | 4 | 100 | 6 s | 3–7 s |
+| `balanceado` | 500 | 3 | sim | 8 | 100 | 10 s | 8–16 s |
+| `chupacabra` | 1000 | 3 | sim | 10 | 100 | 10 s | 15–35 s |
 
-São alvos operacionais, não promessa de “mil leads quentinhos”. O Maps decide quantos sobram depois do dedupe.
+Os valores são editáveis por perfil e persistidos em `profile-settings.json` na pasta de dados do aplicativo. A validação limita: resultados por job de 1 a 5.000; concorrência crawler de 1 a 5; concorrência web de 1 a 20; lote web de 1 a 500; timeout de 1 a 60 segundos; pausas de 0 a 120 segundos, com máximo maior ou igual ao mínimo.
+
+O limite é aplicado pelo crawler a cada consulta (um job = uma combinação cidade × nicho), antes da deduplicação. Portanto, não é uma promessa de quantidade final de leads; o Maps decide quantos sobram depois do dedupe. A concorrência crawler limita jobs simultâneos; as pausas aleatórias configuradas são aplicadas entre inícios de jobs.
 
 ## Matriz de prospecção
 
