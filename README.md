@@ -4,18 +4,22 @@
 
 # Chupacabra System 🦇
 
-**B2B Prospect Engine.** O nome não é metáfora de marketing: o bicho foi feito pra **chupar** lead — cidade, nicho, telefone, site, score, CNPJ, o combo.
+**B2B Prospect Engine.** O nome não é branding fofo: o bicho foi feito pra **chupar** lead — cidade, nicho, telefone, site, score, CNPJ, o combo inteiro.
 
-Crawler assíncrono, enriquecimento, perfis de execução e desktop Tauri. Você monta a matriz, aperta o botão, e o resto é sangue no XLSX.
+Crawler assíncrono, enriquecimento, perfis com fome configurável e desktop Tauri. Você monta a matriz, escolhe o nível de sede e aperta o botão. O resto é sangue no XLSX.
 
-> **Versão 1.1.0 (stable)** — primeira versão que dá pra olhar no espelho sem ver mock. Engine real, **Base de Leads** de verdade, **Relatórios** do que foi chupado, CNPJ/BrasilAPI, CI Windows + Linux, instalador NSIS/DEB. Branch oficial: `main` (só ela; o resto é lenda urbana).
+<p align="center"><strong>👉 <a href="https://github.com/bloodshinoda/chupacabra/releases/tag/v1.1.0">Vem dar uma chupadinha</a> 👈</strong></p>
 
-Release: [v1.1.0](https://github.com/bloodshinoda/chupacabra/releases/tag/v1.1.0)  
-🐾 *Chupacabra tá pronto pra chupar.*
+> **Versão 1.1.0** — leads reais, relatórios do que foi chupado, CNPJ/BrasilAPI, **página de Configurações** com perfis personalizáveis e persistentes, concorrência controlada, CI Windows + Linux, instalador NSIS/DEB. Branch oficial: `main` (o resto é folclore).
+
+Release: [v1.1.0](https://github.com/bloodshinoda/chupacabra/releases/tag/v1.1.0) · [Changelog](CHANGELOG.md)  
+🐾 *Mais controle, menos chute, mais fome configurável.*
+
+---
 
 ## O que esse monstro faz
 
-Prospecção B2B sem viver em planilha na mão e script solto:
+Prospecção B2B sem viver de planilha na unha e script solto na pasta Downloads:
 
 ```text
 Interface React/TanStack
@@ -31,94 +35,118 @@ Interface React/TanStack
  coleta → dedupe → enriquecimento → leads + relatórios
 ```
 
-Alvo principal de distribuição: **Windows + NSIS** em `Program Files`. Linux ganha **DEB** no CI (irmão mais novo, mas já entra na festa).
+**Windows + NSIS** em `Program Files` é o prato principal. Linux ganha **DEB** no CI (o primo que também come, só que de terno experimental).
 
-## Estado atual (1.1.0) — o que já mama
+Tudo roda **local**. Sem conta na nuvem, sem “assine o plano Chupa Pro”. Autenticação e cobrança? Não é dessa temporada.
 
-### Engine
+---
 
-- `placesCrawlerV2` manda na coleta.
-- `aiohttp`, paginação do Maps, dedupe por `place_id` (coletado vs único vs lixo duplicado no painel).
-- Retry com backoff — o Maps não é buffet livre.
-- Perfis: `rapido`, `balanceado`, `chupacabra` (esse último é fome mesmo).
-- Runs em pastas `YYYY-MM-DD HH.MM` — **local**, fora do git. Lead no repo público é crime de guerra.
-- Enriquecimento: telefone, site, domínio, avaliação, **score**, **porte**, **CNPJ** (site + BrasilAPI quando rola).
-- Daemon JSON stdin/stdout; eventos de ciclo de vida pra UI não ficar no escuro.
-- UTF-8/mojibake entre Python, Rust e Windows: a gente já tomou essa porrada e tratou.
-- XLSX no final, abas que o Excel não vomita, com CNPJ/porte/score.
+## 1.1 — o que mudou na fome
 
-### Tauri
+- **Configurações** — página pra afiar o dente de cada perfil (Rápido, Balanceado, Chupacabra)
+- Preferências **persistentes** em `profile-settings.json` (não some quando fecha o app)
+- Limite por job, concorrência, sites, lotes, timeout, intervalo mín/máx — com **validação** pra não inventar número mágico
+- Parâmetros **registrados na run** (histórico de “com que fome isso foi chupado”)
+- Jobs em paralelo de verdade, conforme o perfil
+- Timeout de enriquecimento/CNPJ menos drama
+- Testes novos de perfil, persistência e concorrência
 
-Rust (`engine_runtime`) sobe o engine e joga stdout/stderr pra interface.
+---
 
-Dev: `python -m engine.daemon` na raiz.  
-Build Windows: engine **PyInstaller one-file** embutido — usuário final **não precisa de Python** (e graças a Deus).
+## Engine — a boca
 
-Dados instalados:
+- `placesCrawlerV2` manda na coleta (`aiohttp`, paginação do Maps)
+- Dedupe por `place_id` — coletado vs único vs lixo repetido no painel
+- Retry com backoff (o Maps não é open bar)
+- Runs em pastas `YYYY-MM-DD HH.MM` — **local**, fora do git
+- Enriquecimento: telefone, site, domínio, avaliação, **score**, **porte**, **CNPJ** (site + BrasilAPI quando rola)
+- Daemon JSON stdin/stdout + eventos de ciclo de vida pra UI não ficar no escuro
+- UTF-8/mojibake Python ↔ Rust ↔ Windows: já tomamos essa porrada
+- XLSX no final, abas que o Excel engole, com CNPJ/porte/score
 
-```text
-%USERPROFILE%\Documents\Chupacabra System\
-```
+**Lead no GitHub público é crime de guerra.** `runs/`, CSV e XLSX ficam no `.gitignore` de propósito.
 
-Frontend prod: `.output/public`. Dev: `127.0.0.1:5173` (porta teimosa de propósito).
+---
 
-### Como o instalador nasce
+## Frontend — onde você aperta o botão
 
-```text
-engine/daemon.py
-      ↓
-PyInstaller --onefile  (scripts/build-engine.mjs)
-      ↓
-engine/dist/chupacabra-engine.exe
-      ↓
-Tauri resource
-      ↓
-NSIS (Windows) / DEB (Linux CI)
-```
+| Tela | O que é |
+|------|--------|
+| **Painel** | Run de verdade, jobs, pausa/retoma/cancela, o bicho respirando entre as vítimas |
+| **Matriz de Alvos** | Cidades (IBGE e afins) + **montanha de nichos B2B** + nicho custom (`src/lib/niches.ts`) |
+| **Base de Leads** | O que foi chupado — filtro por empresa, cidade, score, CNPJ, site… |
+| **Relatórios** | XLSX/CSV por execução, sem teatro |
+| **Configurações** | Afiar Rápido / Balanceado / Chupacabra — a novidade da 1.1 |
+| **Automação** | Cadeira reservada; ainda não manda Zap pra ninguém |
+| **IA** | Modal “em breve”; **1.1 não inventa pitch sozinha** |
 
-`npm run build:engine` + `requirements-build.txt` só no build. Em dev: `CHUPACABRA_PYTHON` / `CHUPACABRA_ROOT` ou `python` no PATH. Teste de dados: `CHUPACABRA_DATA_ROOT`.
+Splash do **Chupacabrinha** na abertura (é o mesmo bixin do topo).
 
-### Frontend — onde você aperta o botão
-
-- **Painel** — run de verdade, jobs, pausa estocástica (o bicho respira entre as vítimas)
-- **Matriz de Alvos** — cidades (IBGE e afins) + **montanha de nichos B2B** (`src/lib/niches.ts`)
-- **Base de Leads** — o que foi chupado, filtrável (empresa, cidade, score, CNPJ, site…)
-- **Relatórios** — XLSX/CSV da execução, sem teatro
-- **Automação** — cadeira reservada; ainda não manda mensagem pra ninguém
-- **IA** — modal “em breve”; **1.0 não inventa copy sozinha**
-- Splash do **Chupacabrinha** na abertura (mesma arte do ícone acima)
+---
 
 ## Perfis de fome
 
-| Perfil | Limite por job | Jobs crawler em paralelo | Sites | Concorrência web | Lote web | Timeout | Intervalo |
-|---|---:|---:|---|---:|---:|---:|---:|
-| `rapido` | 250 | 5 | não | 4 | 100 | 6 s | 3–7 s |
-| `balanceado` | 500 | 3 | sim | 8 | 100 | 10 s | 8–16 s |
-| `chupacabra` | 1000 | 3 | sim | 10 | 100 | 10 s | 15–35 s |
+| Perfil | Vibes | Limite/job | Jobs // | Sites | Web // | Lote | Timeout | Intervalo |
+|--------|--------|----------:|--------:|:-----:|-------:|-----:|--------:|----------|
+| **Rápido** | Snack run: bebe a vitrine e some | 250 | 5 | não | 4 | 100 | 6 s | 3–7 s |
+| **Balanceado** | Fome de adulto responsável | 500 | 3 | sim | 8 | 100 | 10 s | 8–16 s |
+| **Chupacabra** | Modo monstro: mais sede, mais pausa | 1000 | 3 | sim | 10 | 100 | 10 s | 15–35 s |
 
-Os valores são editáveis por perfil e persistidos em `profile-settings.json` na pasta de dados do aplicativo. A validação limita: resultados por job de 1 a 5.000; concorrência crawler de 1 a 5; concorrência web de 1 a 20; lote web de 1 a 500; timeout de 1 a 60 segundos; pausas de 0 a 120 segundos, com máximo maior ou igual ao mínimo.
+- **Rápido** — velocidade > profundidade. Sem enriquecimento de site.
+- **Balanceado** — coleta + site, sem tentar beber o Maps inteiro.
+- **Chupacabra** — agressivo e paciente: chupa mais, espera mais entre as mordidas.
 
-O limite é aplicado pelo crawler a cada consulta (um job = uma combinação cidade × nicho), antes da deduplicação. Portanto, não é uma promessa de quantidade final de leads; o Maps decide quantos sobram depois do dedupe. A concorrência crawler limita jobs simultâneos; as pausas aleatórias configuradas são aplicadas entre inícios de jobs.
+Tudo isso é **editável** na Configurações e persiste. Validação de fábrica:
 
-## Matriz de prospecção
+| Parâmetro | Faixa |
+|-----------|--------|
+| Resultados por job | 1 – 5.000 |
+| Concorrência crawler | 1 – 5 |
+| Concorrência web | 1 – 20 |
+| Lote web | 1 – 500 |
+| Timeout | 1 – 60 s |
+| Pausas | 0 – 120 s (máx ≥ mín) |
+
+O **limite** é teto **por job** (uma cidade × um nicho), **antes** do dedupe. Não é promessa de “N leads no Excel”. O Maps e o dedupe decidem o que sobra no prato. A concorrência do crawler limita quantos jobs roem ao mesmo tempo; as pausas aleatórias entram entre os inícios de job.
+
+### Nomes zoeiros dos knobs (Configurações)
+
+| Técnico | Na cara do usuário |
+|---------|-------------------|
+| Limite de resultados | **Tamanho do banquete** |
+| Concorrência do crawler | **Bocadas ao mesmo tempo** |
+| Enriquecimento de sites | **Abrir o site da vítima** |
+| Concorrência do enriquecimento | **Aberturas simultâneas** |
+| Tamanho dos lotes | **Tamanho do bocado** (avançado) |
+| Timeout | **Paciência com site lerdo** |
+| Intervalo mín/máx | **Tempo entre mordidas** |
+
+---
+
+## Matriz — o cardápio
 
 **Cidade × nicho.** Você monta, o runner executa.
 
 - Geografia: municípios BR (IBGE) + busca fora via engine
-- Nichos: Acompanhantes, Igrejas evangélicas com café da manhã, Casas de apostas, Academias de Crossfrit, Sex Shop… e o que você inventar de custom
+- Nichos: centenas de categorias B2B (marketing, TI, saúde, indústria, varejo…) e o que você digitar de custom
+- Tem limite de jobs na matriz pra não mandar o PC (nem o IP) pro hospital
 
-Tem limite de jobs na matriz pra não mandar o PC (nem o IP) pro hospital.
+O autocomplete é B2B de gravata. Nicho livre? O cano aguenta query esquisita — o Maps devolve o que tiver indexado. Use com responsabilidade (e humor).
+
+---
 
 ## Relatórios — o sangue engarrafado
 
-Depois da coleta/enriquecimento: CSV consolidado + XLSX da run. Na UI 1.0:
+Depois da coleta/enriquecimento:
 
 - lista por execução
 - export CSV de leads
-- export combinado
+- export combinado / XLSX
 - colunas que importam: contato, score, **porte**, **CNPJ**, categoria…
 
-Tudo amarrado em `run_id` / job. Regenerar relatório sem re-chupar a cidade inteira é o sonho; a estrutura já aponta pra isso.
+Tudo amarrado em `run_id` / job. Re-chupar a cidade inteira só porque faltou uma aba não é o plano de vida.
+
+---
 
 ## Onde o Windows guarda a bagunça
 
@@ -130,20 +158,24 @@ C:\ProgramData\Chupacabra System\
     config compartilhada (se precisar)
 
 %LOCALAPPDATA%\Chupacabra System\
-    cache, logs, coisa suja de sessão
+    cache, logs, profile-settings.json, sujeira de sessão
 
 %USERPROFILE%\Documents\Chupacabra System\
-    runs, relatórios, exports — o estoque de leads
+    runs, relatórios, exports — o estoque
 ```
 
-Dev: `runs/` na raiz, no `.gitignore`. **Não commit lead.** Telefone de terceiros no GitHub público é o tipo de PR que o universo devolve com juros.
+Dev: `runs/` na raiz, ignorado pelo git. **Não commit lead.** Telefone de terceiro no repo público é o tipo de PR que o universo devolve com juros.
 
-## Instalador NSIS
+---
 
-`.exe` **perMachine**: admin, `Program Files`, todo mundo no PC, `HKLM`, atalho **Chupacabra System**, PT-BR.
+## Instalador
 
-Arte do bicho: `src-tauri/icons/icon.png` (e cópia gerada em `public/icon.png` no build).  
-Artes opcionais do instalador: header **150×57**, sidebar **164×314**. Ícones em `src-tauri/icons/`.
+`.exe` **perMachine**: admin, `Program Files`, atalho **Chupacabra System**, PT-BR.
+
+Arte: `src-tauri/icons/icon.png` (cópia em `public/icon.png` no build).  
+NSIS opcional: header **150×57**, sidebar **164×314**.
+
+---
 
 ## Desenvolvimento — alimentar o bicho em casa
 
@@ -166,51 +198,68 @@ cargo check --manifest-path src-tauri/Cargo.toml
 npx tauri dev
 ```
 
+Em dev: `CHUPACABRA_PYTHON` / `CHUPACABRA_ROOT` ou `python` no PATH. Dados de teste: `CHUPACABRA_DATA_ROOT`.
+
+---
+
 ## Build — engarrafar
 
 ```bash
 npm run build                 # frontend
-npm run build:engine          # chupacabra-engine.exe
+npm run build:engine          # chupacabra-engine.exe (PyInstaller)
 npx tauri build --bundles nsis
 ```
 
-`beforeBuildCommand` = `npm run build:desktop` (frontend + engine).
+`beforeBuildCommand` = `npm run build:desktop` (frontend + engine). Usuário final **não precisa de Python**.
 
 ### CI
 
 - Windows → NSIS + release em tags `v*`
 - Linux → DEB + release em tags `v*`
 
-Push em `main`, tags `v*`, ou `workflow_dispatch`.  
-Assinatura de código e teste em Windows limpo ainda são “faça antes de soltar pros desconhecidos”.
+Push em `main`, tag `v*`, ou `workflow_dispatch`.  
+Assinatura de código e smoke em Windows limpo: faça antes de soltar pros desconhecidos.
+
+---
 
 ## Mapa do antro
 
 ```text
 chupacabra/
-├── src/                     # React/TanStack — o painel
+├── src/                     # React/TanStack — painel, matriz, leads, configs
 ├── src-tauri/               # Rust — a ponte
-├── engine/                  # daemon, geography, orchestration
+├── engine/                  # daemon, geography, orchestration, profiles
 ├── mapScraper/              # crawler, enrichment, XLSX
 ├── scripts/                 # build do engine, assets
 ├── tests/                   # pra não chupar errado duas vezes
 ├── .github/workflows/       # Windows + Linux
-└── README.md                # você está aqui (com o bixin em cima)
+├── CHANGELOG.md
+└── README.md                # você está aqui (com o bixin e o convite)
 ```
 
-## Próximas vítimas (roadmap)
+---
 
-1. Automação de abordagem (hoje é só a cadeira vazia)
-2. IA de verdade (modal já provocando; 1.0 não alucina pitch)
-3. Histórico de runs ainda mais carnudo na UI
+## Próximas vítimas
+
+1. Automação de abordagem (hoje é só a cadeira)
+2. IA de verdade (modal já provocando)
+3. Histórico de runs ainda mais carnudo
 4. Relatório por cidade + consolidado, se a fome pedir
 5. Assinatura do instalador
 6. Mais teste em máquina limpa
 
+---
+
 ## Plataformas
 
-Tauri fala Windows, Linux e macOS. **Oficial pra distribuir: Windows.** Linux no CI é o laboratório que também gera `.deb`.
+Tauri fala Windows, Linux e macOS. **Oficial pra distribuir: Windows.** Linux no CI é laboratório com `.deb` de brinde.
 
 ---
 
-Feito pra chupar. Com perfil, limite de jobs e relatório no final — porque até monstro precisa de processinho.
+<p align="center">
+  Feito pra chupar.<br/>
+  Com perfil, limite, concorrência e relatório no final —<br/>
+  porque até monstro precisa de processinho.
+</p>
+
+<p align="center"><strong>Vem dar uma chupadinha.</strong> 🦇</p>
