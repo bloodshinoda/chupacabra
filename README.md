@@ -2,6 +2,16 @@
   <img src="src-tauri/icons/icon.png" alt="Chupacabra System" width="280" />
 </p>
 
+<p align="center">
+  <a href="https://github.com/bloodshinoda/chupacabra/releases/tag/v1.1.0"><img src="https://img.shields.io/github/v/release/bloodshinoda/chupacabra?style=flat-square&label=release&color=22c55e" alt="Release" /></a>
+  <a href="https://github.com/bloodshinoda/chupacabra/actions/workflows/build-windows.yml"><img src="https://github.com/bloodshinoda/chupacabra/actions/workflows/build-windows.yml/badge.svg" alt="Build Windows" /></a>
+  <a href="https://github.com/bloodshinoda/chupacabra/actions/workflows/build-linux.yml"><img src="https://github.com/bloodshinoda/chupacabra/actions/workflows/build-linux.yml/badge.svg" alt="Build Linux" /></a>
+  <img src="https://img.shields.io/badge/Windows-NSIS-0A66C2?style=flat-square&logo=windows&logoColor=white" alt="Windows" />
+  <img src="https://img.shields.io/badge/Linux-DEB-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" />
+  <img src="https://img.shields.io/badge/stack-Tauri%20%2B%20Rust%20%2B%20Python-b91c1c?style=flat-square" alt="Stack" />
+  <img src="https://img.shields.io/badge/stress--test-Windows%20%26%20Linux%20limpos-16a34a?style=flat-square" alt="Stress test" />
+</p>
+
 # Chupacabra System 🦇
 
 **B2B Prospect Engine.** O nome não é branding fofo: o bicho foi feito pra **chupar** lead — cidade, nicho, telefone, site, score, CNPJ, o combo inteiro.
@@ -14,6 +24,10 @@ Crawler assíncrono, enriquecimento, perfis com fome configurável e desktop Tau
 
 Release: [v1.1.0](https://github.com/bloodshinoda/chupacabra/releases/tag/v1.1.0) · [Changelog](CHANGELOG.md)  
 🐾 *Mais controle, menos chute, mais fome configurável.*
+
+### Validação em campo
+
+A **1.1.0** foi **stress-testada em Windows e Linux limpos** (máquina sem toolchain de dev): instalador → engine embutido → run real → leads e relatório. Não é só CI verde e torcida — o bicho chupou fora da casa do dono.
 
 ---
 
@@ -35,7 +49,7 @@ Interface React/TanStack
  coleta → dedupe → enriquecimento → leads + relatórios
 ```
 
-**Windows + NSIS** em `Program Files` é o prato principal. Linux ganha **DEB** no CI (o primo que também come, só que de terno experimental).
+**Windows + NSIS** em `Program Files` é o prato principal. Linux ganha **DEB** no CI e também passou no stress em ambiente limpo.
 
 Tudo roda **local**. Sem conta na nuvem, sem “assine o plano Chupa Pro”. Autenticação e cobrança? Não é dessa temporada.
 
@@ -50,6 +64,7 @@ Tudo roda **local**. Sem conta na nuvem, sem “assine o plano Chupa Pro”. Aut
 - Jobs em paralelo de verdade, conforme o perfil
 - Timeout de enriquecimento/CNPJ menos drama
 - Testes novos de perfil, persistência e concorrência
+- **Stress test** em Windows e Linux limpos (instalador de ponta a ponta)
 
 ---
 
@@ -217,8 +232,9 @@ npx tauri build --bundles nsis
 - Windows → NSIS + release em tags `v*`
 - Linux → DEB + release em tags `v*`
 
-Push em `main`, tag `v*`, ou `workflow_dispatch`.  
-Assinatura de código e smoke em Windows limpo: faça antes de soltar pros desconhecidos.
+Push em `main`, tag `v*`, ou `workflow_dispatch`.
+
+Assinatura de código do instalador Windows ainda é passo à parte (não bloqueia o uso; só o “Unknown publisher” do SmartScreen).
 
 ---
 
@@ -245,14 +261,13 @@ chupacabra/
 2. IA de verdade (modal já provocando)
 3. Histórico de runs ainda mais carnudo
 4. Relatório por cidade + consolidado, se a fome pedir
-5. Assinatura do instalador
-6. Mais teste em máquina limpa
+5. Assinatura de código do instalador Windows
 
 ---
 
 ## Plataformas
 
-Tauri fala Windows, Linux e macOS. **Oficial pra distribuir: Windows.** Linux no CI é laboratório com `.deb` de brinde.
+Tauri fala Windows, Linux e macOS. **Oficial pra distribuir: Windows.** Linux: CI + **stress em ambiente limpo** + `.deb` na release.
 
 ---
 
