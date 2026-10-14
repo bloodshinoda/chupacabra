@@ -1,0 +1,9 @@
+{
+  "bundle": {
+    "active": true,
+    "targets": ["dmg"],
+    "resources": {
+      "../engine/dist/chupacabra-engine": "engine/chupacabra-engine"
+    }
+  }
+}
