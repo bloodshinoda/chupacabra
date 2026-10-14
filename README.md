@@ -9,9 +9,9 @@
   <a href="https://github.com/bloodshinoda/chupacabra/actions/workflows/build-macos.yml"><img src="https://github.com/bloodshinoda/chupacabra/actions/workflows/build-macos.yml/badge.svg" alt="Build macOS" /></a>
   <img src="https://img.shields.io/badge/Windows-NSIS-0A66C2?style=flat-square&logo=windows&logoColor=white" alt="Windows" />
   <img src="https://img.shields.io/badge/Linux-DEB-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" />
-  <img src="https://img.shields.io/badge/macOS-Apple%20Silicon%20DMG-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" />
+  <img src="https://img.shields.io/badge/macOS-Apple%20Silicon%20only-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" />
   <img src="https://img.shields.io/badge/stack-Tauri%20%2B%20Rust%20%2B%20Python-b91c1c?style=flat-square" alt="Stack" />
-  <img src="https://img.shields.io/badge/stress--test-Windows%20%26%20Linux%20limpos-16a34a?style=flat-square" alt="Stress test" />
+  <img src="https://img.shields.io/badge/stress--test-Win%20%2B%20Linux%20%2B%20macOS%20ARM-16a34a?style=flat-square" alt="Stress test" />
 </p>
 
 # Chupacabra System 🦇
@@ -26,13 +26,22 @@ Crawler assíncrono, enriquecimento, perfis com fome configurável e desktop Tau
 
 Release: [v1.1.0](https://github.com/bloodshinoda/chupacabra/releases/tag/v1.1.0) · [Changelog](CHANGELOG.md)  
 🐾 *Mais controle, menos chute, mais fome configurável.*  
-🍎 *E agora também dá uma mordida na maçã.*
+🍎 *E agora também dá uma mordida na maçã — só ARM. Intel? Não somos arqueólogos.*
 
 ### Validação em campo
 
-A **1.1.0** foi **stress-testada em Windows e Linux limpos** (máquina sem toolchain de dev): instalador → engine embutido → run real → leads e relatório. Não é só CI verde e torcida — o bicho chupou fora da casa do dono.
+A **1.1.0** foi **stress-testada em máquinas limpas** (sem toolchain de dev): instalador → engine embutido → run real → leads e relatório.
 
-**macOS:** build de release **Apple Silicon** (`aarch64`) gera o `.dmg` e já entrou na release **v1.1.0**. Gatekeeper/assinatura notarizada ainda é história de Cupertino pra depois — na primeira abertura o macOS pode fazer cara feia; é o preço de monstro sem selo da Apple.
+| Plataforma | Stress limpo |
+|------------|--------------|
+| **Windows** | ✅ |
+| **Linux** | ✅ |
+| **macOS (Apple Silicon)** | ✅ |
+| **macOS Intel** | ❌ fora de escopo — não somos arqueólogos |
+
+Não é só CI verde e torcida. O bicho chupou fora da casa do dono nos três sistemas que importam.
+
+**macOS:** DMG **aarch64** na release **v1.1.0**. Gatekeeper/notarização ainda é história de Cupertino pra depois — na primeira abertura o macOS pode fazer cara feia; é o preço de monstro sem selo da Apple.
 
 ---
 
@@ -54,7 +63,7 @@ Interface React/TanStack
  coleta → dedupe → enriquecimento → leads + relatórios
 ```
 
-**Windows + NSIS** continua o prato principal. **Linux** tem DEB + stress em limpo. **macOS** agora entra no cardápio: DMG nativo pra **Apple Silicon** (M1/M2/M3…). Intel Mac? Ainda não — o dente foi afiado pro silicon da casa.
+**Windows + NSIS** continua o prato principal. **Linux** tem DEB + stress em limpo. **macOS** entra no cardápio com DMG nativo pra **Apple Silicon** (M1/M2/M3…) — também stressado em limpo. **Intel Mac não entra no mapa.** Quem ainda vive em x86_64 da Apple está no museu; a gente não faz tour guiado.
 
 Tudo roda **local**. Sem conta na nuvem, sem “assine o plano Chupa Pro”. Autenticação e cobrança? Não é dessa temporada.
 
@@ -69,8 +78,8 @@ Tudo roda **local**. Sem conta na nuvem, sem “assine o plano Chupa Pro”. Aut
 - Jobs em paralelo conforme o perfil
 - Timeout de enriquecimento/CNPJ menos drama
 - Testes novos de perfil, persistência e concorrência
-- **Stress test** em Windows e Linux limpos
-- **Mordida na maçã** — workflow `build-macos.yml`, empacotamento DMG **aarch64**, artefato na release
+- **Stress test** em Windows, Linux e **macOS ARM** limpos
+- **Mordida na maçã** — workflow `build-macos.yml`, DMG **aarch64**, artefato na release (**só ARM**)
 
 ---
 
@@ -82,7 +91,7 @@ Tudo roda **local**. Sem conta na nuvem, sem “assine o plano Chupa Pro”. Aut
 - Runs em pastas `YYYY-MM-DD HH.MM` — **local**, fora do git
 - Enriquecimento: telefone, site, domínio, avaliação, **score**, **porte**, **CNPJ** (site + BrasilAPI quando rola)
 - Daemon JSON stdin/stdout + eventos de ciclo de vida pra UI não ficar no escuro
-- UTF-8/mojibake Python ↔ Rust ↔ Windows (e agora o Mac também senta à mesa)
+- UTF-8/mojibake Python ↔ Rust ↔ Windows/Linux/macOS
 - XLSX no final, abas que o Excel engole, com CNPJ/porte/score
 
 **Lead no GitHub público é crime de guerra.** `runs/`, CSV e XLSX ficam no `.gitignore` de propósito.
@@ -188,9 +197,11 @@ Dados de usuário seguem o padrão do desktop (Documents / app data do Tauri). E
 
 | Plataforma | Pacote | Notas |
 |------------|--------|--------|
-| **Windows** | `*_x64-setup.exe` (NSIS, perMachine) | Alvo oficial; stress em limpo OK |
-| **Linux** | `*_amd64.deb` | Stress em limpo OK |
-| **macOS** | `*_aarch64.dmg` | **Apple Silicon only**; Gatekeeper pode reclamar sem notarização |
+| **Windows** | `*_x64-setup.exe` (NSIS, perMachine) | Stress em limpo ✅ |
+| **Linux** | `*_amd64.deb` | Stress em limpo ✅ |
+| **macOS** | `*_aarch64.dmg` | **Apple Silicon only** · stress em limpo ✅ · Gatekeeper sem notarização pode reclamar |
+
+Intel Mac: **não suportado.** Não somos arqueólogos.
 
 Arte: `src-tauri/icons/icon.png`. NSIS opcional: header **150×57**, sidebar **164×314**.
 
@@ -228,7 +239,7 @@ npm run build                 # frontend
 npm run build:engine          # engine self-contained (PyInstaller)
 npx tauri build --bundles nsis   # Windows
 npx tauri build --bundles deb    # Linux
-npx tauri build --bundles dmg    # macOS (Apple Silicon no CI)
+npx tauri build --bundles dmg    # macOS Apple Silicon
 ```
 
 `beforeBuildCommand` = `npm run build:desktop`. Usuário final **não precisa de Python**.
@@ -252,7 +263,7 @@ Assinatura de código (Windows Authenticode / Apple notarization) ainda é passo
 ```text
 chupacabra/
 ├── src/                     # React/TanStack
-├── src-tauri/               # Rust + empacotamento (Win/Linux/macOS)
+├── src-tauri/               # Rust + empacotamento (Win/Linux/macOS ARM)
 ├── engine/                  # daemon, geography, orchestration, profiles
 ├── mapScraper/              # crawler, enrichment, XLSX
 ├── scripts/                 # build do engine, assets
@@ -271,8 +282,8 @@ chupacabra/
 3. Histórico de runs ainda mais carnudo
 4. Relatório por cidade + consolidado, se a fome pedir
 5. Assinatura / notarização dos instaladores (Windows + macOS)
-6. Stress test macOS em máquina limpa (o dente na maçã é novo)
-7. Intel Mac? Só se a fome pedir — prioridade é Apple Silicon
+
+Intel Mac não está na lista. Museu fica pro sábado.
 
 ---
 
@@ -280,15 +291,16 @@ chupacabra/
 
 | OS | Status |
 |----|--------|
-| **Windows** | Oficial · NSIS · stress limpo |
-| **Linux** | DEB · CI · stress limpo |
-| **macOS** | **DMG aarch64** · CI verde · mordida recente na maçã |
+| **Windows** | Oficial · NSIS · stress limpo ✅ |
+| **Linux** | DEB · CI · stress limpo ✅ |
+| **macOS Apple Silicon** | DMG aarch64 · CI · stress limpo ✅ · mordida na maçã |
+| **macOS Intel** | Não. Não somos arqueólogos. |
 
 ---
 
 <p align="center">
   Feito pra chupar.<br/>
-  Windows, Linux e — agora — uma mordida na maçã.<br/>
+  Windows, Linux e uma mordida na maçã (ARM, sem fósseis).<br/>
   Com perfil, limite, concorrência e relatório no final.<br/>
   Porque até monstro precisa de processinho.
 </p>
