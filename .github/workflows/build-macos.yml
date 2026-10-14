@@ -23,7 +23,7 @@ concurrency:
 jobs:
   build-macos:
     name: Compilar Chupacabra System para macOS
-    runs-on: macos-latest
+    runs-on: macos-15
 
     steps:
       - name: Baixar código
@@ -43,11 +43,16 @@ jobs:
 
       - name: Configurar Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
 
       - name: Cache do Cargo
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+
+      - name: Confirmar arquitetura Apple Silicon
+        run: test "$(uname -m)" = "arm64"
 
       - name: Instalar dependências do frontend
         run: npm ci
