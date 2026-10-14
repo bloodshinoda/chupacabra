@@ -58,9 +58,6 @@ jobs:
       - name: Validar testes Python
         run: python -m unittest discover -s tests -v
 
-      - name: Compilar frontend e motor Python
-        run: npm run build:desktop
-
       - name: Gerar imagem de disco DMG
         run: npx tauri build --config src-tauri/tauri.macos.conf.json --bundles dmg
 
