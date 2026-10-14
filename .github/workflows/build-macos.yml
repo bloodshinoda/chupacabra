@@ -1,0 +1,81 @@
+name: Build macOS
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Tag da Release existente para receber o instalador (ex.: v1.1.0). Deixe vazio para gerar apenas o artifact."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-macos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-macos:
+    name: Compilar Chupacabra System para macOS
+    runs-on: macos-latest
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v5
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Configurar Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Configurar Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache do Cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Instalar dependências do frontend
+        run: npm ci
+
+      - name: Instalar dependências Python do engine
+        run: python -m pip install -r requirements-build.txt
+
+      - name: Validar testes Python
+        run: python -m unittest discover -s tests -v
+
+      - name: Compilar frontend e motor Python
+        run: npm run build:desktop
+
+      - name: Gerar imagem de disco DMG
+        run: npx tauri build --config src-tauri/tauri.macos.conf.json --bundles dmg
+
+      - name: Publicar instalador como artifact de CI
+        uses: actions/upload-artifact@v4
+        with:
+          name: Chupacabra-System-macOS-${{ runner.arch }}
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Anexar instalador à Release
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag || github.ref_name }}
+          files: src-tauri/target/release/bundle/dmg/*.dmg
+          fail_on_unmatched_files: true
