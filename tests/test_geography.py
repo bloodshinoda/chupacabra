@@ -1,8 +1,14 @@
 import gzip
 import json
+import os
+import tempfile
+import time
 import unittest
+from pathlib import Path
+from unittest.mock import patch
+from urllib.error import URLError
 
-from engine.geography.ibge import _read_json_response
+from engine.geography.ibge import CACHE_TTL_SECONDS, IbgeBrazilCatalog, _read_json_response
 
 from engine.geography.models import TargetLocation
 from engine.geography.planner import build_matrix_jobs
@@ -12,6 +18,34 @@ class GeographyPlannerTests(unittest.TestCase):
     def test_reads_gzip_json_response(self):
         payload = json.dumps([{"id": 1}], ensure_ascii=False).encode("utf-8")
         self.assertEqual(_read_json_response(gzip.compress(payload)), [{"id": 1}])
+
+
+    def test_uses_expired_city_cache_when_ibge_is_unavailable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache = Path(directory) / "cities-SC.json"
+            cache.write_text(json.dumps([{"id": 4204202, "nome": "Chapeco"}]), encoding="utf-8")
+            expired = time.time() - CACHE_TTL_SECONDS - 60
+            os.utime(cache, (expired, expired))
+            catalog = IbgeBrazilCatalog(directory)
+
+            with patch("engine.geography.ibge.urlopen", side_effect=URLError("IBGE indisponivel")):
+                cities = catalog.cities("SC")
+
+            self.assertEqual([city.city for city in cities], ["Chapeco"])
+            self.assertEqual(cities[0].id, "br:4204202")
+
+    def test_uses_expired_population_cache_when_sidra_is_unavailable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache = Path(directory) / "municipality-population-2022.json"
+            cache.write_text(json.dumps({"4204202": 254781}), encoding="utf-8")
+            expired = time.time() - CACHE_TTL_SECONDS - 60
+            os.utime(cache, (expired, expired))
+            catalog = IbgeBrazilCatalog(directory)
+
+            with patch("engine.geography.ibge.urlopen", side_effect=URLError("SIDRA indisponivel")):
+                populations = catalog._populations_2022()
+
+            self.assertEqual(populations, {"4204202": 254781})
 
     def test_builds_city_category_matrix(self):
         locations = [
