@@ -134,8 +134,19 @@ class IbgeBrazilCatalog:
             SIDRA_URL,
             headers={"Accept": "application/json", "Accept-Encoding": "identity", "User-Agent": "Chupacabra-System/0.1"},
         )
-        with urlopen(request, timeout=30) as response:
-            payload = _read_json_response(response.read())
+        try:
+            with urlopen(request, timeout=30) as response:
+                payload = _read_json_response(response.read())
+        except Exception:
+            # O SIDRA pode ficar indisponível; aproveita o último catálogo salvo,
+            # mesmo vencido, em vez de interromper a seleção geográfica.
+            if path.exists():
+                try:
+                    cached = json.loads(path.read_text(encoding="utf-8"))
+                    return {str(k): int(v) for k, v in cached.items()}
+                except (OSError, ValueError, TypeError):
+                    pass
+            raise
 
         populations: dict[str, int] = {}
         for row in payload[1:]:
@@ -155,8 +166,19 @@ class IbgeBrazilCatalog:
             url,
             headers={"Accept": "application/json", "Accept-Encoding": "identity", "User-Agent": "Chupacabra-System/0.1"},
         )
-        with urlopen(request, timeout=20) as response:
-            payload = _read_json_response(response.read())
+        try:
+            with urlopen(request, timeout=20) as response:
+                payload = _read_json_response(response.read())
+        except Exception:
+            # Cache vencido é melhor que deixar a lista de municípios indisponível.
+            if path.exists():
+                try:
+                    cached = json.loads(path.read_text(encoding="utf-8"))
+                    if isinstance(cached, list):
+                        return cached
+                except (OSError, ValueError, TypeError):
+                    pass
+            raise
         path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
         return payload
 
