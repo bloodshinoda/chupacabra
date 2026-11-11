@@ -45,6 +45,7 @@
     }
   },
   "bundle": {
-    "active": false
+    "active": false,
+    "publisher": "Vilson de Oliveira Junior"
   }
 }
